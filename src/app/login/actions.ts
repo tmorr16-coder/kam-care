@@ -1,8 +1,10 @@
 'use server'
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { matchUserToPerson } from '@/lib/matching'
 import { env } from '@/lib/env'
+import { SESSION_ONLY_COOKIE } from '@/lib/supabase/remember'
 
 export type AuthState = { error?: string; message?: string } | undefined
 
@@ -23,7 +25,12 @@ function friendly(message: string) {
 export async function passwordSignIn(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const { email, password, captchaToken } = creds(formData)
   if (!email || !password) return { error: 'Enter your email and password.' }
-  const supabase = await createClient()
+  // "Keep me signed in" unticked: sign-in lasts until the browser closes.
+  const sessionOnly = formData.get('remember') !== 'on'
+  const cookieStore = await cookies()
+  if (sessionOnly) cookieStore.set(SESSION_ONLY_COOKIE, '1', { path: '/', sameSite: 'lax', secure: true, httpOnly: false })
+  else cookieStore.delete(SESSION_ONLY_COOKIE)
+  const supabase = await createClient({ sessionOnly })
   const { data, error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken } })
   if (error || !data.user) return { error: friendly(error?.message ?? 'Could not sign in.') }
   const status = await matchUserToPerson(data.user)

@@ -11,6 +11,15 @@ function Notice({ state }: { state: { error?: string; message?: string } | undef
   return null
 }
 
+function RememberMe() {
+  return (
+    <label className="flex items-center gap-2 text-[15px] text-ink">
+      <input type="checkbox" name="remember" defaultChecked className="size-4" />
+      Keep me signed in
+    </label>
+  )
+}
+
 export function MemberEmailForms() {
   const [mode, setMode] = useState<'closed' | 'signin' | 'signup'>('closed')
   const [signInState, signInAction, signingIn] = useActionState(passwordSignIn, undefined)
@@ -50,6 +59,7 @@ export function MemberEmailForms() {
         <h2 className="text-lg font-semibold">Sign in with email</h2>
         <input name="email" type="email" autoComplete="email" required placeholder="Email" className={inputClass + ' py-3 text-base'} />
         <input name="password" type="password" autoComplete="current-password" required placeholder="Password" className={inputClass + ' py-3 text-base'} />
+        <RememberMe />
         <Turnstile resetKey={signInState} />
         <Notice state={signInState} />
         <button disabled={signingIn} className={buttonClass('primary', 'lg') + ' w-full rounded-xl'}>{signingIn ? 'Signing in…' : 'Sign in'}</button>
@@ -81,6 +91,7 @@ export function AdminPasswordForm() {
       <input type="hidden" name="portal" value="admin" />
       <input name="email" type="email" autoComplete="email" required placeholder="Email" className={inputClass} />
       <input name="password" type="password" autoComplete="current-password" required placeholder="Password" className={inputClass} />
+      <RememberMe />
       <Turnstile resetKey={state} />
       <Notice state={state} />
       <button disabled={pending} className={buttonClass('primary', 'md') + ' w-full'}>{pending ? 'Signing in…' : 'Continue'}</button>
