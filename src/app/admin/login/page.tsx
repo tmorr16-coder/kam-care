@@ -3,6 +3,7 @@ import { Suspense } from 'react'
 import { Logo } from '@/components/ui'
 import { OAuthButton } from '@/app/login/oauth-button'
 import { AdminPasswordForm } from '@/app/login/email-forms'
+import { enabledProviders } from '@/lib/auth-providers'
 
 export const metadata: Metadata = { title: 'Admin sign in' }
 
@@ -12,7 +13,7 @@ async function ErrorNote({ searchParams }: { searchParams: Promise<{ error?: str
   return <p className="mb-4 rounded-lg bg-urgent-bg px-3 py-2 text-sm text-urgent" role="alert">{error}</p>
 }
 
-export default function AdminLogin({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function AdminLogin({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   return (
     <div className="grid min-h-dvh lg:grid-cols-[48%_1fr]">
       <section className="gold-rule flex flex-col bg-navy-900 px-8 pt-12 pb-8 text-white sm:px-14">
@@ -38,8 +39,12 @@ export default function AdminLogin({ searchParams }: { searchParams: Promise<{ e
             <Suspense fallback={null}>
               <ErrorNote searchParams={searchParams} />
             </Suspense>
-            <OAuthButton provider="azure" next="/admin" />
-            <OAuthButton provider="google" next="/admin" />
+            {/* Staff sign in with work accounts; Facebook and Apple are for members. */}
+            {(await enabledProviders())
+              .filter((p) => p === 'azure' || p === 'google')
+              .map((p) => (
+                <OAuthButton key={p} provider={p} next="/admin" />
+              ))}
           </div>
           <div className="my-5 flex items-center gap-3 text-sm text-ink-muted">
             <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />

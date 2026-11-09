@@ -2,14 +2,14 @@
 import { useState } from 'react'
 import clsx from 'clsx'
 import { createClient } from '@/lib/supabase/browser'
-import { FacebookMark, GoogleMark, MicrosoftMark } from '@/components/icons'
-
-type Provider = 'azure' | 'google' | 'facebook'
+import { AppleMark, FacebookMark, GoogleMark, MicrosoftMark } from '@/components/icons'
+import type { OAuthProvider as Provider } from '@/lib/auth-providers'
 
 const LABELS: Record<Provider, { label: string; Icon: () => React.ReactElement }> = {
   azure: { label: 'Continue with Microsoft', Icon: MicrosoftMark },
   google: { label: 'Continue with Google', Icon: GoogleMark },
   facebook: { label: 'Continue with Facebook', Icon: FacebookMark },
+  apple: { label: 'Continue with Apple', Icon: AppleMark },
 }
 
 export function OAuthButton({ provider, next = '/', size = 'md' }: { provider: Provider; next?: string; size?: 'md' | 'lg' }) {

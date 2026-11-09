@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import clsx from 'clsx'
 import { Lock } from 'lucide-react'
 import { requireLeader } from '@/lib/auth'
@@ -110,12 +109,9 @@ export default async function LeaderHome() {
             </article>
           )
         })}
-        <div className="flex items-center justify-center gap-5 pt-2 text-sm">
-          <Link href="/home" className="text-navy-800 underline-offset-2 hover:underline">My care (member view)</Link>
-          <form action="/auth/signout" method="post">
-            <button className="text-ink-muted hover:text-ink">Sign out</button>
-          </form>
-        </div>
+        <form action="/auth/signout" method="post" className="pt-2 text-center">
+          <button className="text-sm text-ink-muted hover:text-ink">Sign out</button>
+        </form>
       </main>
     </>
   )

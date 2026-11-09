@@ -55,14 +55,6 @@ function NavInner({ path }: { path: string }) {
             {n.label}
           </Link>
         ))}
-        {/* Pastors and staff are members too: their own check-in, prayer and requests. */}
-        <Link
-          href="/home"
-          onClick={() => setOpen(false)}
-          className="mt-3 rounded-lg border-t border-white/10 px-3 pt-3 pb-2 text-[15px] text-white/85 hover:bg-white/5 hover:text-white"
-        >
-          My care (member view)
-        </Link>
       </nav>
     </>
   )

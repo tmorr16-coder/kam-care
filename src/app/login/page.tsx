@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { Logo } from '@/components/ui'
+import { enabledProviders } from '@/lib/auth-providers'
 import { OAuthButton } from './oauth-button'
 import { MemberEmailForms } from './email-forms'
 
@@ -12,7 +13,7 @@ async function ErrorNote({ searchParams }: { searchParams: Promise<{ error?: str
   return <p className="mb-4 rounded-lg bg-urgent-bg px-3 py-2 text-sm text-urgent" role="alert">{error}</p>
 }
 
-export default function MemberLogin({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function MemberLogin({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col">
       <header className="gold-rule bg-navy-900 px-6 pt-14 pb-10 text-white">
@@ -25,9 +26,9 @@ export default function MemberLogin({ searchParams }: { searchParams: Promise<{ 
           <ErrorNote searchParams={searchParams} />
         </Suspense>
         <div className="space-y-3">
-          <OAuthButton provider="azure" size="lg" />
-          <OAuthButton provider="google" size="lg" />
-          <OAuthButton provider="facebook" size="lg" />
+          {(await enabledProviders()).map((p) => (
+            <OAuthButton key={p} provider={p} size="lg" />
+          ))}
         </div>
         <div className="my-6 flex items-center gap-4 text-ink-muted">
           <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />

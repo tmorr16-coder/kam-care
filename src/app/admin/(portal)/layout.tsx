@@ -2,12 +2,16 @@ import { Suspense } from 'react'
 import Link from 'next/link'
 import { AdminNav } from '@/components/admin-nav'
 import { Logo } from '@/components/ui'
+import { ViewSwitcher } from '@/components/view-switcher'
 import { ConnectionBadge, ViewerBadge } from './shell-status'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="lg:flex lg:min-h-dvh">
       <aside className="gold-rule relative bg-navy-900 text-white lg:sticky lg:top-0 lg:flex lg:h-dvh lg:w-[220px] lg:shrink-0 lg:flex-col">
+        <Suspense fallback={null}>
+          <ViewSwitcher current="admin" className="px-4 pt-3 lg:flex-wrap" />
+        </Suspense>
         <div className="flex items-center justify-between px-4 pt-5 pb-3 lg:block">
           <Link href="/admin" className="flex items-center gap-3">
             <Logo size={40} />

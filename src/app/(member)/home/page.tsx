@@ -51,15 +51,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ s
         </form>
       </header>
 
-      {(v.role === 'pastor' || v.role === 'staff' || v.role === 'care_leader') && (
-        <a
-          href={v.role === 'care_leader' ? '/leader' : '/admin'}
-          className="mb-5 flex items-center justify-between rounded-2xl border border-navy-100 bg-navy-50 px-5 py-4 text-[16px] font-semibold text-navy-800"
-        >
-          {v.role === 'care_leader' ? 'Open my care tasks' : 'Open the admin portal'}
-          <span aria-hidden>→</span>
-        </a>
-      )}
 
       {sent === 'checkin' || recent ? (
         <section className="rounded-3xl bg-navy-900 p-6 text-white" aria-live="polite">
