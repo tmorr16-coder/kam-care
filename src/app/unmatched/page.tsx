@@ -9,7 +9,9 @@ export const metadata: Metadata = { title: 'Almost there' }
 async function Status() {
   const v = await getViewer()
   if (!v) redirect('/login')
-  if (v.matchStatus === 'matched') redirect(homeFor(v))
+  // Staff can be matched with no OneChurch person (e.g. a hand-granted first admin). Stay here
+  // rather than bounce back to /admin, so it's clear why the member view isn't available.
+  if (v.matchStatus === 'matched' && v.personId) redirect(homeFor(v))
   return <p className="text-sm text-ink-muted">Signed in as {v.email ?? 'your account'}.</p>
 }
 
