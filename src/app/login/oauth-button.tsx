@@ -2,11 +2,10 @@
 import { useState } from 'react'
 import clsx from 'clsx'
 import { createClient } from '@/lib/supabase/browser'
-import { AppleMark, FacebookMark, GoogleMark, MicrosoftMark } from '@/components/icons'
+import { AppleMark, FacebookMark, GoogleMark } from '@/components/icons'
 import type { OAuthProvider as Provider } from '@/lib/auth-providers'
 
 const LABELS: Record<Provider, { label: string; Icon: () => React.ReactElement }> = {
-  azure: { label: 'Continue with Microsoft', Icon: MicrosoftMark },
   google: { label: 'Continue with Google', Icon: GoogleMark },
   facebook: { label: 'Continue with Facebook', Icon: FacebookMark },
   apple: { label: 'Continue with Apple', Icon: AppleMark },
@@ -25,7 +24,6 @@ export function OAuthButton({ provider, next = '/', size = 'md' }: { provider: P
       provider,
       options: {
         redirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-        scopes: provider === 'azure' ? 'email openid profile' : undefined,
       },
     })
     if (error) {

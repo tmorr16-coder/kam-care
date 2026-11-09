@@ -13,7 +13,7 @@ with **kam.onechurchsoftware.com**.
 ## Stack
 
 - **Next.js 16** (App Router, Cache Components) on **Vercel**
-- **Supabase**: Postgres, Auth (Microsoft, Google, Facebook, email + two-step verification), row-level security
+- **Supabase**: Postgres, Auth (Google, Facebook, Apple, email + two-step verification, Cloudflare Turnstile), row-level security
 - **OneChurch API**: server-side only, API key in Vercel env vars
 - **Twilio** (texts) and **Resend** (email), both optional; without them, messages are logged as `not_configured`
 
@@ -87,15 +87,20 @@ After changing a migration: `npm run db:reset && npm run db:types`.
    ```
 3. **Authentication → URL Configuration**: Site URL `https://care.kam.church`; redirect URLs `https://care.kam.church/auth/callback` (add your Vercel preview URL pattern too).
 4. **Authentication → Sign In / Providers**:
-   - **Azure (Microsoft)**: app registration in Entra ID for the kam.church tenant; redirect URI `https://<project-ref>.supabase.co/auth/v1/callback`.
    - **Google**: OAuth client in Google Cloud; same redirect URI.
    - **Facebook**: member portal only; same redirect URI.
    - **Apple**: member portal only. Services ID + Sign in with Apple key in the Apple Developer account; return URL `https://<project-ref>.supabase.co/auth/v1/callback`. The secret Apple issues expires every 6 months, so regenerate it before then.
 
    Sign-in buttons appear on their own once a provider is switched on (checked about once a minute).
    - **Email**: on, with "Confirm email" on.
-5. **Authentication → Multi-Factor**: enable TOTP (authenticator app). WebAuthn passkeys can be turned on there too.
-6. **Authentication → Emails → SMTP**: use Resend (or similar) so sign-in emails come from `care@kam.church`.
+5. **Cloudflare Turnstile** ("I am human" box on the email forms):
+   1. Cloudflare dashboard → **Turnstile** → **Add widget**. Hostnames: `care.kam.church` (and `vercel.app` for test deploys). Mode: **Managed**.
+   2. Put the **site key** in Vercel as `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and redeploy.
+   3. Then Supabase → **Authentication → Attack Protection** → enable CAPTCHA, provider **Turnstile**, paste the **secret key**.
+
+   Do it in that order: once Supabase requires CAPTCHA, email sign-in fails until the site shows the box.
+6. **Authentication → Multi-Factor**: enable TOTP (authenticator app). WebAuthn passkeys can be turned on there too.
+7. **Authentication → Emails → SMTP**: use Resend (or similar) so sign-in emails come from `care@kam.church`.
 
 ### 2. Vercel (Pro)
 

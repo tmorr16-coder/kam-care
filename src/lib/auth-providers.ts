@@ -2,8 +2,8 @@ import 'server-only'
 import { cacheLife } from 'next/cache'
 import { env } from '@/lib/env'
 
-export type OAuthProvider = 'azure' | 'google' | 'facebook' | 'apple'
-const ALL: OAuthProvider[] = ['azure', 'google', 'facebook', 'apple']
+export type OAuthProvider = 'google' | 'facebook' | 'apple'
+const ALL: OAuthProvider[] = ['google', 'facebook', 'apple']
 
 /**
  * Sign-in providers switched on in Supabase (Authentication → Sign In / Providers), so the

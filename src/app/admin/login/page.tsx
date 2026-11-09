@@ -33,15 +33,15 @@ export default async function AdminLogin({ searchParams }: { searchParams: Promi
       <section className="flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
           <h2 className="font-serif text-3xl font-semibold">Sign in to the admin portal</h2>
-          <p className="mt-2 text-ink-muted">Staff: use your kam.church account. Volunteer leaders can use a KAM Care account.</p>
+          <p className="mt-2 text-ink-muted">Use Google, or your KAM Care email and password.</p>
 
           <div className="mt-7 space-y-3">
             <Suspense fallback={null}>
               <ErrorNote searchParams={searchParams} />
             </Suspense>
-            {/* Staff sign in with work accounts; Facebook and Apple are for members. */}
+            {/* Facebook and Apple are for members. */}
             {(await enabledProviders())
-              .filter((p) => p === 'azure' || p === 'google')
+              .filter((p) => p === 'google')
               .map((p) => (
                 <OAuthButton key={p} provider={p} next="/admin" />
               ))}
@@ -51,7 +51,7 @@ export default async function AdminLogin({ searchParams }: { searchParams: Promi
           </div>
           <AdminPasswordForm />
           <p className="mt-3 text-sm text-ink-muted">
-            For volunteer leaders without a kam.church account. Password with two-step verification required.
+            Two-step verification is required for pastors and staff.
           </p>
 
           <div className="mt-6 rounded-xl border border-line bg-white p-5">

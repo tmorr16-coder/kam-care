@@ -2,6 +2,7 @@
 import { useActionState, useState } from 'react'
 import { Mail } from 'lucide-react'
 import { buttonClass, inputClass } from '@/components/ui'
+import { Turnstile } from '@/components/turnstile'
 import { emailLink, passwordSignIn, signUp } from './actions'
 
 function Notice({ state }: { state: { error?: string; message?: string } | undefined }) {
@@ -35,6 +36,7 @@ export function MemberEmailForms() {
         <h2 className="text-lg font-semibold">Create a KAM Care account</h2>
         <input name="email" type="email" autoComplete="email" required placeholder="Email" className={inputClass + ' py-3 text-base'} />
         <input name="password" type="password" autoComplete="new-password" required minLength={10} placeholder="Password (10+ characters)" className={inputClass + ' py-3 text-base'} />
+        <Turnstile resetKey={signUpState} />
         <Notice state={signUpState} />
         <button disabled={signingUp} className={buttonClass('primary', 'lg') + ' w-full rounded-xl'}>{signingUp ? 'Creating…' : 'Create account'}</button>
         <button type="button" onClick={() => setMode('signin')} className="w-full text-center text-sm font-semibold text-navy-800">I already have an account</button>
@@ -48,12 +50,14 @@ export function MemberEmailForms() {
         <h2 className="text-lg font-semibold">Sign in with email</h2>
         <input name="email" type="email" autoComplete="email" required placeholder="Email" className={inputClass + ' py-3 text-base'} />
         <input name="password" type="password" autoComplete="current-password" required placeholder="Password" className={inputClass + ' py-3 text-base'} />
+        <Turnstile resetKey={signInState} />
         <Notice state={signInState} />
         <button disabled={signingIn} className={buttonClass('primary', 'lg') + ' w-full rounded-xl'}>{signingIn ? 'Signing in…' : 'Sign in'}</button>
       </form>
       <form action={linkAction} className="space-y-2 border-t border-line pt-3">
         <p className="text-sm text-ink-muted">No password? We can email you a sign-in link.</p>
         <input name="email" type="email" autoComplete="email" required placeholder="Email" className={inputClass + ' py-3 text-base'} />
+        <Turnstile resetKey={linkState} />
         <Notice state={linkState} />
         <button disabled={linking} className={buttonClass('secondary', 'md') + ' w-full rounded-xl'}>{linking ? 'Sending…' : 'Email me a sign-in link'}</button>
       </form>
@@ -77,6 +81,7 @@ export function AdminPasswordForm() {
       <input type="hidden" name="portal" value="admin" />
       <input name="email" type="email" autoComplete="email" required placeholder="Email" className={inputClass} />
       <input name="password" type="password" autoComplete="current-password" required placeholder="Password" className={inputClass} />
+      <Turnstile resetKey={state} />
       <Notice state={state} />
       <button disabled={pending} className={buttonClass('primary', 'md') + ' w-full'}>{pending ? 'Signing in…' : 'Continue'}</button>
     </form>
