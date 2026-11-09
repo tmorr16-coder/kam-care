@@ -14,6 +14,7 @@ async function ErrorNote({ searchParams }: { searchParams: Promise<{ error?: str
 }
 
 export default async function MemberLogin({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const providers = await enabledProviders()
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col">
       <header className="gold-rule bg-navy-900 px-6 pt-14 pb-10 text-white">
@@ -25,14 +26,18 @@ export default async function MemberLogin({ searchParams }: { searchParams: Prom
         <Suspense fallback={null}>
           <ErrorNote searchParams={searchParams} />
         </Suspense>
-        <div className="space-y-3">
-          {(await enabledProviders()).map((p) => (
-            <OAuthButton key={p} provider={p} size="lg" />
-          ))}
-        </div>
-        <div className="my-6 flex items-center gap-4 text-ink-muted">
-          <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
-        </div>
+        {providers.length > 0 && (
+          <>
+            <div className="space-y-3">
+              {providers.map((p) => (
+                <OAuthButton key={p} provider={p} size="lg" />
+              ))}
+            </div>
+            <div className="my-6 flex items-center gap-4 text-ink-muted">
+              <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
+            </div>
+          </>
+        )}
         <MemberEmailForms />
       </main>
       <footer className="px-6 py-8 text-[15px] text-ink-muted">

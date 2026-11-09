@@ -14,6 +14,8 @@ async function ErrorNote({ searchParams }: { searchParams: Promise<{ error?: str
 }
 
 export default async function AdminLogin({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  // Facebook and Apple are for members.
+  const providers = (await enabledProviders()).filter((p) => p === 'google')
   return (
     <div className="grid min-h-dvh lg:grid-cols-[48%_1fr]">
       <section className="gold-rule flex flex-col bg-navy-900 px-8 pt-12 pb-8 text-white sm:px-14">
@@ -33,22 +35,21 @@ export default async function AdminLogin({ searchParams }: { searchParams: Promi
       <section className="flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
           <h2 className="font-serif text-3xl font-semibold">Sign in to the admin portal</h2>
-          <p className="mt-2 text-ink-muted">Use Google, or your KAM Care email and password.</p>
+          <p className="mt-2 text-ink-muted">Use your KAM Care email and password.</p>
 
           <div className="mt-7 space-y-3">
             <Suspense fallback={null}>
               <ErrorNote searchParams={searchParams} />
             </Suspense>
-            {/* Facebook and Apple are for members. */}
-            {(await enabledProviders())
-              .filter((p) => p === 'google')
-              .map((p) => (
-                <OAuthButton key={p} provider={p} next="/admin" />
-              ))}
+            {providers.map((p) => (
+              <OAuthButton key={p} provider={p} next="/admin" />
+            ))}
           </div>
-          <div className="my-5 flex items-center gap-3 text-sm text-ink-muted">
-            <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
-          </div>
+          {providers.length > 0 && (
+            <div className="my-5 flex items-center gap-3 text-sm text-ink-muted">
+              <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
+            </div>
+          )}
           <AdminPasswordForm />
           <p className="mt-3 text-sm text-ink-muted">
             Two-step verification is required for pastors and staff.
