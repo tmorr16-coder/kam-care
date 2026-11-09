@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+/* KAM Care design tokens, taken from the Claude Design export. */
+@theme {
+  --font-sans: var(--font-noto), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-playfair), Georgia, serif;
+
+  --color-navy-950: #062744;
+  --color-navy-900: #08325a;     /* sidebar, hero panels */
+  --color-navy-800: #0b4373;     /* primary buttons */
+  --color-navy-700: #1a5488;
+  --color-navy-100: #e6edf6;
+  --color-navy-50: #f0f4fa;
+  --color-gold-500: #d4a64a;     /* accent rule, eyebrow text */
+  --color-gold-100: #fbf1dc;
+
+  --color-canvas: #f4f5f8;       /* page background */
+  --color-line: #e3e5ea;         /* card borders */
+  --color-ink: #1b1d22;
+  --color-ink-muted: #5b6170;
+
+  --color-urgent: #b42318;
+  --color-urgent-bg: #fde8e7;
+  --color-high: #93590a;
+  --color-high-bg: #fdf0dc;
+  --color-normal: #1f3a5f;
+  --color-normal-bg: #e6edf6;
+  --color-ok: #1f6b3a;
+  --color-ok-bg: #e5f3ea;
+  --color-warn: #b8742a;
+
+  --color-tile-rose: #fbe6e6;
+  --color-tile-peach: #fdf0dc;
+  --color-tile-sage: #e6f2e8;
+  --color-tile-sky: #e4ebf5;
+}
+
+html { background: var(--color-canvas); }
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-serif { font-family: var(--font-serif); }
+
+/* Thin gold rule across the top of hero panels */
+.gold-rule { box-shadow: inset 0 4px 0 var(--color-gold-500); }
+
+:focus-visible { outline: 2px solid var(--color-navy-700); outline-offset: 2px; }

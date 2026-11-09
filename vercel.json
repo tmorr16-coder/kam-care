@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["iad1"],
+  "crons": [
+    { "path": "/api/cron/reconcile", "schedule": "0 7 * * *" },
+    { "path": "/api/cron/engine", "schedule": "0 11 * * *" },
+    { "path": "/api/cron/escalate", "schedule": "15 * * * *" },
+    { "path": "/api/cron/attendance", "schedule": "*/30 * * * *" }
+  ]
+}
