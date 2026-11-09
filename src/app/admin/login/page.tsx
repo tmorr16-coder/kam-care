@@ -51,16 +51,12 @@ export default async function AdminLogin({ searchParams }: { searchParams: Promi
             </div>
           )}
           <AdminPasswordForm />
-          <p className="mt-3 text-sm text-ink-muted">
-            Two-step verification is required for pastors and staff.
-          </p>
 
           <div className="mt-6 rounded-xl border border-line bg-white p-5">
             <h3 className="font-semibold">Who can sign in</h3>
             <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-ink">
               <li>You must be a named person in OneChurch, matched by email</li>
               <li>Your OneChurch role sets your access: Pastor, Care Leader or Staff</li>
-              <li>Two-step verification is required for pastors and staff</li>
               <li>Access ends automatically when the role is removed in OneChurch</li>
             </ul>
           </div>

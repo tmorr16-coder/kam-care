@@ -46,10 +46,9 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
   ])
 
   const role = (profile?.role ?? 'member') as AppRole
-  const amr = (aal?.currentAuthenticationMethods ?? []).map((m) => (typeof m === 'string' ? m : m.method))
-  const usedPassword = amr.includes('password')
-  // Two-step verification: always for pastors and staff, and for leaders using a KAM Care password.
-  const mfaRequired = role === 'pastor' || role === 'staff' || (role === 'care_leader' && usedPassword)
+  // Two-step verification is turned off for everyone (decided Nov 2026). To bring it back, set
+  // this to e.g. `role === 'pastor' || role === 'staff'`; the /admin/mfa setup page still works.
+  const mfaRequired = false
   const person = profile?.person as { first_name: string; title: string | null; display_name: string } | null
 
   return {

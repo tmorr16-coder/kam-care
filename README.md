@@ -47,7 +47,7 @@ Rules live in the database (`supabase/migrations/*_security.sql`), so a bug in a
 - **Leaders** see a person's name and phone only while they hold an open task for them, and the task text, not the file. They log outcomes through a database function, not direct writes.
 - **Members** see only their own records. Their timeline shows friendly steps ("Deacon Hayes called you"), never internal notes.
 - **Sensitive matters never leave KAM Care.** Non-sensitive care touches can be written back to OneChurch as private Notes (toggle on the OneChurch connection page).
-- **Two-step verification** is required for pastors and staff, and for leaders signing in with a KAM Care password.
+- **Two-step verification** is off for everyone. To require it again, change `mfaRequired` in `src/lib/auth.ts`.
 
 ## Local development
 
@@ -69,7 +69,6 @@ npm run dev           # http://localhost:3000
 | hayes@kam.test | Care leader (Dcn. R. Hayes) |
 | kevin@kam.test | Member (Kevin Ortiz) |
 
-Pastor and staff logins will ask you to set up an authenticator app on first sign-in.
 Local email (magic links, sign-up confirmations) goes to Mailpit at http://127.0.0.1:54324.
 
 After changing a migration: `npm run db:reset && npm run db:types`.

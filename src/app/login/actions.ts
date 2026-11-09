@@ -28,8 +28,7 @@ export async function passwordSignIn(_prev: AuthState, formData: FormData): Prom
   if (error || !data.user) return { error: friendly(error?.message ?? 'Could not sign in.') }
   const status = await matchUserToPerson(data.user)
   if (status !== 'matched') redirect('/unmatched')
-  // The admin side checks two-step verification; /admin/mfa sends everyone else onward.
-  redirect(formData.get('portal') === 'admin' ? '/admin/mfa' : '/')
+  redirect('/')
 }
 
 export async function emailLink(_prev: AuthState, formData: FormData): Promise<AuthState> {
