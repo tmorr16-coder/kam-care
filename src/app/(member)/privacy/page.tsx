@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { requireMember } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { BackHeader } from '../parts'
@@ -34,18 +35,20 @@ export default async function Privacy() {
       </div>
 
       <section className="mt-6 rounded-2xl bg-navy-100 p-6">
-        <h2 className="text-xl font-semibold">Let your care team notice when life gets heavy</h2>
-        <p className="mt-2 text-[17px]">
-          Connect a social account and we&apos;ll watch for public posts about loss, illness, a new job or a new baby, so someone can reach out or celebrate with you.
-        </p>
-        <ul className="mt-3 list-disc space-y-1 pl-5 text-[17px]">
-          <li>Public posts only, never private messages</li>
-          <li>Seen by your care team only</li>
-          <li>Disconnect anytime; we delete what we stored</li>
+        <h2 className="text-xl font-semibold">How your care team notices when life changes</h2>
+        <p className="mt-2 text-[17px]">So no one in the KAM family goes unseen, KAM Care lets your care team know when:</p>
+        <ul className="mt-3 list-disc space-y-1.5 pl-5 text-[17px]">
+          <li>Your household changes in your church record, like a new baby or a loss</li>
+          <li>You come on Sundays less often than usual (only if attendance is on above)</li>
+          <li>Our texts or emails stop reaching you</li>
+          <li>A care leader sees something you shared, like a new job or a hospital stay</li>
         </ul>
-        <button disabled className="mt-5 w-full rounded-xl border border-navy-700/30 bg-white py-3 text-[17px] font-semibold text-ink-muted">
-          {c?.social_connected ? 'Connected' : 'Coming soon'}
-        </button>
+        <p className="mt-3 text-[17px]">
+          We never read your private messages or log in to your social media. A person always decides how to reach out.
+        </p>
+        <Link href="/moment" className="mt-5 block w-full rounded-xl border border-navy-700/30 bg-white py-3 text-center text-[17px] font-semibold text-navy-800 hover:bg-canvas">
+          Tell us about a life moment
+        </Link>
       </section>
     </div>
   )

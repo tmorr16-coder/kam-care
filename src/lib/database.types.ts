@@ -655,12 +655,15 @@ isOneToOne: false
 "log_task_outcome":
 { Args: { "p_channel"?: Database["public"]['Enums']["channel"],"p_outcome": Database["public"]['Enums']["task_outcome"],"p_task": string }; Returns: undefined
                            },
+"leader_find_people":
+{ Args: { q: string }; Returns: { id: string; display_name: string; campus: string | null }[]
+                           }
 "my_team_ids":
 { Args: Record<PropertyKey, never>; Returns: string[]
                            }
           }
           Enums: {
-            "app_role": "member"|"care_leader"|"staff"|"pastor","case_status": "open"|"closed","channel": "text"|"call"|"visit"|"email"|"app"|"card","moment_type": "birth"|"wedding"|"promotion"|"award"|"anniversary"|"work_anniversary"|"moved"|"sickness"|"bereavement"|"job_loss"|"shut_in"|"birthday"|"other","request_kind": "prayer"|"pastor_call"|"practical"|"counseling","request_status": "received"|"in_progress"|"approved"|"closed","request_visibility": "pastors"|"prayer_team"|"church","sensitive_visibility": "pastors"|"pastors_and_staff","signal_kind": "checkin_drop"|"checkin_low"|"missed_attendance"|"livestream_absent"|"giving_first"|"giving_lapse"|"giving_increase"|"giving_new_recurring"|"giving_quiet"|"prayer_request"|"care_request"|"life_moment"|"guest_visit"|"shut_in_due"|"social_post"|"flagged"|"touch"|"engagement"|"safety","task_outcome": "reached"|"left_message"|"needs_pastor","task_status": "scheduled"|"due"|"done"|"cancelled","urgency": "urgent"|"high"|"normal"
+            "app_role": "member"|"care_leader"|"staff"|"pastor","case_status": "open"|"closed","channel": "text"|"call"|"visit"|"email"|"app"|"card","moment_type": "birth"|"wedding"|"promotion"|"award"|"anniversary"|"work_anniversary"|"moved"|"sickness"|"bereavement"|"job_loss"|"shut_in"|"birthday"|"other","request_kind": "prayer"|"pastor_call"|"practical"|"counseling","request_status": "received"|"in_progress"|"approved"|"closed","request_visibility": "pastors"|"prayer_team"|"church","sensitive_visibility": "pastors"|"pastors_and_staff","signal_kind": "checkin_drop"|"checkin_low"|"missed_attendance"|"livestream_absent"|"giving_first"|"giving_lapse"|"giving_increase"|"giving_new_recurring"|"giving_quiet"|"prayer_request"|"care_request"|"life_moment"|"guest_visit"|"shut_in_due"|"social_post"|"flagged"|"touch"|"engagement"|"safety"|"household_change"|"attendance_fade"|"contact_lost","task_outcome": "reached"|"left_message"|"needs_pastor","task_status": "scheduled"|"due"|"done"|"cancelled","urgency": "urgent"|"high"|"normal"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -780,7 +783,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "app_role": ["member", "care_leader", "staff", "pastor"],"case_status": ["open", "closed"],"channel": ["text", "call", "visit", "email", "app", "card"],"moment_type": ["birth", "wedding", "promotion", "award", "anniversary", "work_anniversary", "moved", "sickness", "bereavement", "job_loss", "shut_in", "birthday", "other"],"request_kind": ["prayer", "pastor_call", "practical", "counseling"],"request_status": ["received", "in_progress", "approved", "closed"],"request_visibility": ["pastors", "prayer_team", "church"],"sensitive_visibility": ["pastors", "pastors_and_staff"],"signal_kind": ["checkin_drop", "checkin_low", "missed_attendance", "livestream_absent", "giving_first", "giving_lapse", "giving_increase", "giving_new_recurring", "giving_quiet", "prayer_request", "care_request", "life_moment", "guest_visit", "shut_in_due", "social_post", "flagged", "touch", "engagement", "safety"],"task_outcome": ["reached", "left_message", "needs_pastor"],"task_status": ["scheduled", "due", "done", "cancelled"],"urgency": ["urgent", "high", "normal"]
+            "app_role": ["member", "care_leader", "staff", "pastor"],"case_status": ["open", "closed"],"channel": ["text", "call", "visit", "email", "app", "card"],"moment_type": ["birth", "wedding", "promotion", "award", "anniversary", "work_anniversary", "moved", "sickness", "bereavement", "job_loss", "shut_in", "birthday", "other"],"request_kind": ["prayer", "pastor_call", "practical", "counseling"],"request_status": ["received", "in_progress", "approved", "closed"],"request_visibility": ["pastors", "prayer_team", "church"],"sensitive_visibility": ["pastors", "pastors_and_staff"],"signal_kind": ["checkin_drop", "checkin_low", "missed_attendance", "livestream_absent", "giving_first", "giving_lapse", "giving_increase", "giving_new_recurring", "giving_quiet", "prayer_request", "care_request", "life_moment", "guest_visit", "shut_in_due", "social_post", "flagged", "touch", "engagement", "safety", "household_change", "attendance_fade", "contact_lost"],"task_outcome": ["reached", "left_message", "needs_pastor"],"task_status": ["scheduled", "due", "done", "cancelled"],"urgency": ["urgent", "high", "normal"]
           }
         }
 } as const

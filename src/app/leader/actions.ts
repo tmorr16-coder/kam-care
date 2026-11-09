@@ -5,7 +5,9 @@ import { requireLeader } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { writeTouchToOneChurch } from '@/lib/onechurch/sync'
-import type { Channel, TaskOutcome } from '@/lib/types'
+import type { Channel, MomentType, TaskOutcome } from '@/lib/types'
+import { onLifeMoment } from '@/lib/care/engine'
+import { todayISO } from '@/lib/dates'
 
 const OUTCOMES: TaskOutcome[] = ['reached', 'left_message', 'needs_pastor']
 const CHANNEL_FOR: Record<string, Channel> = { text: 'text', visit: 'visit', card: 'card', email: 'email' }
@@ -32,4 +34,55 @@ export async function logOutcome(formData: FormData) {
   // Non-sensitive touches are copied to OneChurch Notes (if write-back is on).
   if (touch) after(() => writeTouchToOneChurch(createAdminClient(), touch.id).catch((e) => console.error('[write-back]', e)))
   refresh()
+}
+
+// ─── "Noticed something?" ───────────────────────────────────────────────────
+
+export type FoundPerson = { id: string; display_name: string; campus: string | null }
+
+/** Name search for the form. Name and campus only, through a database function. */
+export async function findPeople(q: string): Promise<FoundPerson[]> {
+  await requireLeader()
+  if (q.trim().length < 2) return []
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('leader_find_people', { q: q.slice(0, 60) })
+  if (error) {
+    console.error('[leader_find_people]', error.message)
+    return []
+  }
+  return data ?? []
+}
+
+const NOTICED: MomentType[] = ['birth', 'wedding', 'promotion', 'award', 'moved', 'sickness', 'bereavement', 'job_loss', 'other']
+const WHERE: Record<string, string> = {
+  facebook: 'Facebook', instagram: 'Instagram', social: 'Social media', person: 'In person', told: 'Someone told me',
+}
+
+export type NoticedState = { ok?: boolean; error?: string } | undefined
+
+/** A leader saw a life event (often on social media). It goes through the same playbooks as any other. */
+export async function reportNoticed(_prev: NoticedState, formData: FormData): Promise<NoticedState> {
+  const v = await requireLeader()
+  const personId = String(formData.get('person_id') ?? '')
+  const type = String(formData.get('type') ?? '') as MomentType
+  const where = WHERE[String(formData.get('where') ?? '')] ?? 'Other'
+  const note = String(formData.get('note') ?? '').trim().slice(0, 500) || null
+  if (!personId) return { error: 'Pick the person first.' }
+  if (!NOTICED.includes(type)) return { error: 'Pick what happened.' }
+
+  // Only someone the leader could find through the search.
+  const supabase = await createClient()
+  const { data: name } = await supabase.rpc('leader_find_people', { q: String(formData.get('person_name') ?? '') })
+  if (!name?.some((p) => p.id === personId)) return { error: 'Pick the person from the list.' }
+
+  const db = createAdminClient()
+  const by = v.displayName ?? v.email ?? 'a care leader'
+  const { data, error } = await db
+    .from('life_moments')
+    .insert({ person_id: personId, type, moment_date: todayISO(), note: `${where}, noted by ${by}${note ? `: ${note}` : ''}`, source: 'leader' })
+    .select('id')
+    .single()
+  if (error) return { error: 'Could not save that. Please try again.' }
+  after(() => onLifeMoment(createAdminClient(), data.id).catch((e) => console.error('[care-engine]', e)))
+  return { ok: true }
 }

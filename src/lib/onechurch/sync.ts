@@ -13,6 +13,7 @@ import { WEBHOOK_EVENTS } from './types'
 type OcGroup = { id: number; name: string; members?: number; active?: boolean; managedBy?: { id: number; name?: string | null } | null; category?: { name?: string | null } | null }
 type OcGroupMember = { id: number; person: number }
 import { onCareRequest, openCase, suggestTeam } from '@/lib/care/engine'
+import { onPersonSynced } from '@/lib/care/proactive'
 
 type Db = SupabaseClient<Database>
 
@@ -103,6 +104,7 @@ export async function upsertPerson(db: Db, p: OcPerson) {
     const { data } = await db.from('households').upsert({ oc_family_id: fam, name: famName, synced_at: new Date().toISOString() }, { onConflict: 'oc_family_id' }).select('id').single()
     householdId = data?.id ?? null
   }
+  const { data: before } = await db.from('people').select('id, household_id, deceased').eq('oc_person_id', p.id).maybeSingle()
   // A person added by hand before OneChurch was connected (e.g. the first admin) is adopted
   // by their OneChurch record on first sync, matched by email, instead of being duplicated.
   if (p.email) {
@@ -134,11 +136,13 @@ export async function upsertPerson(db: Db, p: OcPerson) {
       },
       { onConflict: 'oc_person_id' },
     )
-    .select('id')
+    .select('id, household_id, deceased, first_name, last_name, family_position, birthday')
     .single()
   if (error) throw error
   // Everyone gets a consent row with safe defaults; members change it in the portal.
   await db.from('consents').upsert({ person_id: data.id }, { onConflict: 'person_id', ignoreDuplicates: true })
+  // Household changes, a new baby or a death become gentle care tasks.
+  await onPersonSynced(db, before, data).catch((e) => console.error('[proactive] person sync', errorText(e)))
   return data.id
 }
 

@@ -5,6 +5,7 @@ import type { Channel, MomentType, PlaybookStep, Urgency } from '@/lib/types'
 import { addDays, daysBetween, dueLabel, nextAnniversary, todayISO } from '@/lib/dates'
 import { env } from '@/lib/env'
 import { fillTemplate, sendSms } from '@/lib/messaging'
+import { addGriefFollowUps, runProactive } from './proactive'
 
 /**
  * The care engine turns signals into care cases and follow-up tasks.
@@ -78,7 +79,7 @@ async function primaryTeam(db: Db, personId: string) {
   return data?.primary_team_id ?? null
 }
 
-async function resolveTeam(db: Db, personId: string, campusId: string | null, slug?: string | null, tags: string[] = []) {
+export async function resolveTeam(db: Db, personId: string, campusId: string | null, slug?: string | null, tags: string[] = []) {
   if (slug) {
     const id = await teamBySlug(db, slug)
     if (id) return id
@@ -444,7 +445,8 @@ export async function onLifeMoment(db: Db, momentId: string) {
     anniversary: 'anniversary', moved: 'new home', sickness: 'illness or surgery', bereavement: 'loss of a loved one',
     job_loss: 'job loss', work_anniversary: 'work anniversary', shut_in: 'shut-in visit', other: 'life moment',
   }
-  await db.from('signals').insert({ person_id: m.person_id, kind: 'life_moment', summary: `Life moment: ${labels[m.type] ?? m.type}${m.who ? ` (${m.who})` : ''}`, source: m.source === 'portal' ? 'Member portal' : 'OneChurch profile', severity: 'normal' })
+  const source = m.source === 'portal' ? 'Member portal' : m.source === 'leader' ? 'Noticed by a care leader' : 'OneChurch profile'
+  await db.from('signals').insert({ person_id: m.person_id, kind: 'life_moment', summary: `Life moment: ${labels[m.type] ?? m.type}${m.who ? ` (${m.who})` : ''}`, source, severity: 'normal' })
   // Recurring dates (anniversaries, birthdays) may be stored with their original year.
   const recurring = ['anniversary', 'work_anniversary', 'birthday'].includes(m.type)
   const momentDate = recurring && m.moment_date < addDays(todayISO(), -7) ? nextAnniversary(m.moment_date).date : m.moment_date
@@ -452,16 +454,17 @@ export async function onLifeMoment(db: Db, momentId: string) {
     personId: m.person_id,
     moment: m.type,
     momentDate,
-    why: `Life event shared${m.source === 'portal' ? ' in portal' : ''}: ${labels[m.type] ?? m.type}${m.note ? ` · ${m.note.slice(0, 100)}` : ''}${m.who && m.who !== 'Our family' ? ` (${m.who})` : ''}.`,
+    why: `${m.source === 'leader' ? 'Noticed by a care leader' : m.source === 'portal' ? 'Life event shared in portal' : 'Life event'}: ${labels[m.type] ?? m.type}${m.note ? ` · ${m.note.slice(0, 100)}` : ''}${m.who && m.who !== 'Our family' ? ` (${m.who})` : ''}.`,
     dedupeKey: `moment:${m.id}`,
     householdLabel: p?.household_id && ['birth', 'bereavement', 'moved'].includes(m.type) ? `The ${p.last_name} family` : null,
   })
   if (res) await db.from('life_moments').update({ case_id: res.id }).eq('id', m.id)
+  if (res?.created && m.type === 'bereavement') await addGriefFollowUps(db, res.id, m.person_id, m.moment_date)
 }
 
 // ─── Daily run ──────────────────────────────────────────────────────────────
 
-async function setting<T>(db: Db, key: string, fallback: T): Promise<T> {
+export async function setting<T>(db: Db, key: string, fallback: T): Promise<T> {
   const { data } = await db.from('app_settings').select('value').eq('key', key).maybeSingle()
   return (data?.value as T) ?? fallback
 }
@@ -557,7 +560,7 @@ export async function scheduleMilestones(db: Db) {
   const horizon = addDays(today, 7)
   const { data: consented } = await db.from('consents').select('person_id').eq('celebrate_milestones', true)
   const allowed = new Set((consented ?? []).map((c) => c.person_id))
-  const { data: people } = await db.from('people').select('id, birthday, anniversary').eq('archived', false).eq('deceased', false).or('birthday.not.is.null,anniversary.not.is.null')
+  const { data: people } = await db.from('people').select('id, birthday, anniversary, family_position').eq('archived', false).eq('deceased', false).or('birthday.not.is.null,anniversary.not.is.null')
   let added = 0
   for (const p of people ?? []) {
     if (!allowed.has(p.id)) continue
@@ -566,9 +569,10 @@ export async function scheduleMilestones(db: Db) {
       if (!d) continue
       const next = nextAnniversary(d, today)
       if (next.date > horizon) continue
-      // Milestone birthdays only (every decade from 70); every wedding anniversary.
+      // Milestone birthdays only (18 for children, 50, 60, then every decade); every wedding anniversary.
       const yearKnown = Number(d.slice(0, 4)) !== 1904 // 1904 = year not recorded in OneChurch
-      if (type === 'birthday' && !(yearKnown && next.years >= 70 && next.years % 10 === 0)) continue
+      const milestone = (y: number) => (y === 18 && p.family_position === 'Child') || y === 50 || y === 60 || (y >= 70 && y % 10 === 0)
+      if (type === 'birthday' && !(yearKnown && milestone(next.years))) continue
       const { error } = await db.from('life_moments').insert({
         person_id: p.id, type, moment_date: next.date, who: yearKnown ? `${next.years} years` : null, source: 'onechurch_profile',
       })
@@ -658,5 +662,6 @@ export async function runDailyEngine(db: Db) {
     tasksDue: await promoteDueTasks(db),
     escalated: await escalateOverdue(db),
     careScores: await recomputeCareScores(db),
+    proactive: await runProactive(db),
   }
 }

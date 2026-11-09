@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Logo } from '@/components/ui'
 import { dueLabel, todayISO } from '@/lib/dates'
 import { logOutcome } from './actions'
+import { NoticedForm } from './noticed-form'
 
 export const metadata: Metadata = { title: 'My tasks' }
 
@@ -109,6 +110,7 @@ export default async function LeaderHome() {
             </article>
           )
         })}
+        <NoticedForm />
         <form action="/auth/signout" method="post" className="pt-2 text-center">
           <button className="text-sm text-ink-muted hover:text-ink">Sign out</button>
         </form>
