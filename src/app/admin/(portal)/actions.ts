@@ -36,7 +36,9 @@ export async function reassignCase(formData: FormData) {
   const { data: c, error } = await sb.from('care_cases').select('id, owner_team_id').eq('id', caseId).single()
   if (error || !c) throw new Error('Case not found')
 
-  await sb.from('care_cases').update({ owner_team_id: teamId }).eq('id', caseId)
+  const { data: updated, error: updateError } = await sb.from('care_cases').update({ owner_team_id: teamId }).eq('id', caseId).select('id')
+  if (updateError) throw updateError
+  if (!updated?.length) throw new Error('Not allowed to reassign this case')
   let q = sb.from('tasks').update({ assignee_team_id: teamId, notified_at: null }).eq('case_id', caseId).in('status', ['scheduled', 'due'])
   q = c.owner_team_id ? q.or(`assignee_team_id.is.null,assignee_team_id.eq.${c.owner_team_id}`) : q.is('assignee_team_id', null)
   const { data: moved } = await q.select('id')

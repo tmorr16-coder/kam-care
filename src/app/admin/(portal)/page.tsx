@@ -161,7 +161,7 @@ export default async function CareQueuePage({ searchParams }: { searchParams: Pr
                       {r.actionDetail && <span className="block text-ink-muted">{r.actionDetail}</span>}
                     </td>
                     <td className="px-3 py-4">
-                      <OwnerSelect caseId={r.caseId} value={r.ownerTeamId} teams={teams ?? []} />
+                      <OwnerSelect key={r.ownerTeamId ?? 'none'} caseId={r.caseId} value={r.ownerTeamId} teams={teams ?? []} />
                       {r.dueOn && (
                         <span className={cx('mt-1 block text-xs', r.dueOn < todayISO() ? 'text-urgent' : 'text-ink-muted')}>
                           Due {dueLabel(r.dueOn)}

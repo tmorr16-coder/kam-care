@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRef, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { Check, Mail, MessageCircle, Phone } from 'lucide-react'
 import { buttonClass, cx } from '@/components/ui'
 import type { Channel } from '@/lib/types'
@@ -37,25 +37,42 @@ export function CampusSelect({ value, campuses }: { value: string; campuses: { i
 }
 
 export function OwnerSelect({ caseId, value, teams }: { caseId: string; value: string | null; teams: { id: string; name: string }[] }) {
-  const ref = useRef<HTMLFormElement>(null)
+  // Controlled, and saved without a <form action>: React resets forms after an action, which
+  // snapped the dropdown back to the old team even though the new one was saved.
+  const [selected, setSelected] = useState(value ?? '')
+  const [error, setError] = useState<string | null>(null)
   const [pending, start] = useTransition()
+  function change(teamId: string) {
+    const previous = selected
+    setSelected(teamId)
+    setError(null)
+    const fd = new FormData()
+    fd.set('caseId', caseId)
+    fd.set('teamId', teamId)
+    start(async () => {
+      try {
+        await reassignCase(fd)
+      } catch {
+        setSelected(previous)
+        setError("Couldn't reassign. Try again.")
+      }
+    })
+  }
   return (
-    <form ref={ref} action={(fd) => start(() => reassignCase(fd))}>
-      <input type="hidden" name="caseId" value={caseId} />
-      <label className="block text-[11px] text-ink-muted">
-        Assigned to
-        <select
-          name="teamId"
-          defaultValue={value ?? ''}
-          disabled={pending}
-          onChange={() => ref.current?.requestSubmit()}
-          className="mt-0.5 block w-full max-w-[11rem] rounded-lg border border-line bg-white px-2 py-1.5 text-sm text-ink"
-        >
-          {!value && <option value="" disabled>Unassigned</option>}
-          {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
-      </label>
-    </form>
+    <label className="block text-[11px] text-ink-muted">
+      Assigned to
+      <select
+        name="teamId"
+        value={selected}
+        disabled={pending}
+        onChange={(e) => change(e.target.value)}
+        className="mt-0.5 block w-full max-w-[11rem] rounded-lg border border-line bg-white px-2 py-1.5 text-sm text-ink"
+      >
+        {!selected && <option value="" disabled>Unassigned</option>}
+        {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+      </select>
+      {error && <span className="mt-0.5 block text-urgent" role="alert">{error}</span>}
+    </label>
   )
 }
 
