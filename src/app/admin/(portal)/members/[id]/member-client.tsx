@@ -3,8 +3,9 @@
 import { useActionState, useState } from 'react'
 import { buttonClass, cx, inputClass } from '@/components/ui'
 import { SENSITIVE_REASONS } from '@/lib/types'
+import { addDays, fmtShort } from '@/lib/dates'
 import {
-  addPastoralNote, assignFollowUp, changeAccess, flagForCare, referCounseling, scheduleCall, sendText, snoozeCase, type ActionState,
+  addPastoralNote, assignFollowUp, changeAccess, checkInNextWeek, flagForCare, referCounseling, scheduleCall, sendText, snoozeCase, type ActionState,
 } from './actions'
 
 function Status({ state, dark }: { state: ActionState; dark?: boolean }) {
@@ -23,7 +24,8 @@ export function NextActionComposer({ personId, caseId, suggested }: { personId: 
   const [callState, callAction, callPending] = useActionState(scheduleCall, null)
   const [referState, referAction, referPending] = useActionState(referCounseling, null)
   const [snoozeState, snoozeAction, snoozePending] = useActionState(snoozeCase, null)
-  const last = [textState, callState, referState, snoozeState].find(Boolean) ?? null
+  const [weekState, weekAction, weekPending] = useActionState(checkInNextWeek, null)
+  const last = [textState, callState, referState, snoozeState, weekState].find(Boolean) ?? null
   return (
     <div id="compose">
       <form action={textAction}>
@@ -39,6 +41,7 @@ export function NextActionComposer({ personId, caseId, suggested }: { personId: 
         />
         <div className="mt-3 flex flex-wrap gap-2">
           <button className={cx(buttonClass('primary'), 'bg-navy-800 ring-1 ring-white/10')} disabled={textPending}>{textPending ? 'Sending…' : 'Send text'}</button>
+          <button formAction={weekAction} className={buttonClass('onDark')} disabled={weekPending}>Check in again in 1 week</button>
           <button formAction={callAction} className={buttonClass('onDark')} disabled={callPending}>Schedule call</button>
           <button formAction={referAction} className={buttonClass('onDark')} disabled={referPending}>Refer to Counseling Services</button>
           <button formAction={snoozeAction} className={buttonClass('onDark')} disabled={snoozePending}>Snooze 3 days</button>
@@ -63,11 +66,14 @@ export function TextComposer({ personId }: { personId: string }) {
   )
 }
 
-export function AssignFollowUp({ personId, caseId, teams, defaultTeam, defaultDue, isPastor }: {
-  personId: string; caseId: string | null; teams: Team[]; defaultTeam: string | null; defaultDue: string; isPastor: boolean
+const DUE_PRESETS = [['3 days', 3], ['1 week', 7], ['2 weeks', 14]] as const
+
+export function AssignFollowUp({ personId, caseId, teams, defaultTeam, today, defaultDue, isPastor }: {
+  personId: string; caseId: string | null; teams: Team[]; defaultTeam: string | null; today: string; defaultDue: string; isPastor: boolean
 }) {
   const [state, action, pending] = useActionState(assignFollowUp, null)
   const [sensitive, setSensitive] = useState(false)
+  const [due, setDue] = useState(defaultDue)
   return (
     <form action={action} className="rounded-lg border border-line bg-canvas/60 p-4">
       <h3 className="mb-3 text-[15px] font-semibold">Assign a new follow-up</h3>
@@ -95,7 +101,18 @@ export function AssignFollowUp({ personId, caseId, teams, defaultTeam, defaultDu
         </label>
         <label className="text-sm">
           <span className="mb-1 block font-medium">Due</span>
-          <input type="date" name="due" defaultValue={defaultDue} className={inputClass} required />
+          <input type="date" name="due" value={due} onChange={(e) => setDue(e.target.value)} className={inputClass} required />
+          <span className="mt-1.5 flex gap-1.5">
+            {DUE_PRESETS.map(([label, days]) => {
+              const d = addDays(today, days)
+              return (
+                <button key={label} type="button" onClick={() => setDue(d)} aria-pressed={due === d}
+                  className={cx('rounded-full border px-2.5 py-0.5 text-xs', due === d ? 'border-navy-800 bg-navy-800 text-white' : 'border-line bg-white text-ink hover:bg-canvas')}>
+                  {label}
+                </button>
+              )
+            })}
+          </span>
         </label>
       </div>
       <label className="mt-3 block text-sm">
@@ -216,5 +233,76 @@ export function FlagForCare({ personId, teams, defaultTeam }: { personId: string
         <Status state={state} />
       </div>
     </form>
+  )
+}
+
+/** Standalone "check in again in a week" for members with no open care need. */
+export function CheckInNextWeek({ personId, teams, defaultTeam }: { personId: string; teams: Team[]; defaultTeam: string | null }) {
+  const [state, action, pending] = useActionState(checkInNextWeek, null)
+  return (
+    <form action={action} className="flex flex-wrap items-center gap-2">
+      <input type="hidden" name="personId" value={personId} />
+      <select name="teamId" defaultValue={defaultTeam ?? ''} required className={cx(inputClass, 'w-auto')} aria-label="Care leader for the check-in">
+        <option value="" disabled>Choose a leader</option>
+        {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+      </select>
+      <button className={buttonClass('secondary', 'sm')} disabled={pending}>{pending ? 'Setting…' : 'Check in again in 1 week'}</button>
+      <Status state={state} />
+    </form>
+  )
+}
+
+export type ActivityItem = {
+  id: string; at: string; title: string; source: string; dot: string; kind: 'signal' | 'touch'; group: 'This week' | 'Last week' | 'Earlier'
+}
+
+const FILTERS = [['all', 'All'], ['signal', 'Signals'], ['touch', 'Outreach']] as const
+const GROUPS = ['This week', 'Last week', 'Earlier'] as const
+
+/** Signals and outreach in one list: filter by type, grouped by week, older items folded away. */
+export function ActivityFeed({ items }: { items: ActivityItem[] }) {
+  const [filter, setFilter] = useState<'all' | 'signal' | 'touch'>('all')
+  const [showAll, setShowAll] = useState(false)
+  const shown = items.filter((i) => filter === 'all' || i.kind === filter)
+  const visible = showAll ? shown : shown.slice(0, 8)
+  const count = (k: 'all' | 'signal' | 'touch') => (k === 'all' ? items.length : items.filter((i) => i.kind === k).length)
+  return (
+    <>
+      <div className="flex gap-1.5 px-5 pb-3" role="group" aria-label="Show">
+        {FILTERS.map(([k, label]) => (
+          <button key={k} type="button" onClick={() => setFilter(k)} aria-pressed={filter === k}
+            className={cx('rounded-full px-3 py-1 text-sm', filter === k ? 'bg-navy-800 text-white' : 'bg-canvas text-ink hover:bg-navy-50')}>
+            {label} <span className={filter === k ? 'text-white/70' : 'text-ink-muted'}>{count(k)}</span>
+          </button>
+        ))}
+      </div>
+      {GROUPS.map((g) => {
+        const rows = visible.filter((i) => i.group === g)
+        if (!rows.length) return null
+        return (
+          <section key={g}>
+            <h3 className="bg-canvas/70 px-5 py-1.5 text-xs font-semibold tracking-wider text-ink-muted uppercase">{g}</h3>
+            <ol className="divide-y divide-line px-5">
+              {rows.map((e) => (
+                <li key={e.id} className="flex gap-4 py-3 text-sm">
+                  <span className="w-14 shrink-0 text-ink-muted">{fmtShort(e.at)}</span>
+                  <span className={cx('mt-1.5 size-2.5 shrink-0 rounded-full', e.dot)} aria-hidden />
+                  <span>
+                    <span className="font-semibold">{e.title}</span>
+                    <span className="block text-xs text-ink-muted">{e.source}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )
+      })}
+      {!shown.length && <p className="px-5 py-8 text-center text-sm text-ink-muted">{filter === 'touch' ? 'No outreach logged yet.' : 'No signals yet.'}</p>}
+      {shown.length > visible.length && (
+        <button type="button" onClick={() => setShowAll(true)} className="w-full border-t border-line py-3 text-sm font-semibold text-navy-800 hover:bg-canvas">
+          Show {shown.length - visible.length} older
+        </button>
+      )}
+    </>
   )
 }

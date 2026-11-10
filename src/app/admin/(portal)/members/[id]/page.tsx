@@ -10,7 +10,7 @@ import { loadMember, recentWeekdays } from '@/lib/data/member'
 import { addDays, daysBetween, dueLabel, fmtShort, todayISO } from '@/lib/dates'
 import { CHANNEL_LABELS, CHECKIN_LABELS } from '@/lib/types'
 import { Card, CardHeader, Empty, Initials, PastorsOnly, Pill, cx } from '@/components/ui'
-import { AssignFollowUp, ChangeAccess, FlagForCare, NextActionComposer, PastoralNoteForm, TextComposer } from './member-client'
+import { ActivityFeed, AssignFollowUp, ChangeAccess, CheckInNextWeek, FlagForCare, NextActionComposer, PastoralNoteForm, TextComposer, type ActivityItem } from './member-client'
 
 export const metadata: Metadata = { title: 'Member' }
 
@@ -48,13 +48,19 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
   if (care?.text_read_fast) why.push(`Reads texts within the hour${care.email_ignored ? '; leaves emails unopened' : ''}.`)
   if (c?.moment_type === 'job_loss' || c?.sensitive_reason === 'Employment and finances') why.push('Follow-up options: Total Restoration, Free Holiday Assistance, Food Pantries.')
 
-  const timeline = [
+  const weekOf = (at: string): ActivityItem['group'] => {
+    const ago = daysBetween(at.slice(0, 10), today)
+    return ago < 7 ? 'This week' : ago < 14 ? 'Last week' : 'Earlier'
+  }
+  const timeline: ActivityItem[] = [
     ...m.signals.filter((s) => s.kind !== 'touch').map((s) => ({
-      id: 's' + s.id, at: s.occurred_at, title: s.summary, source: s.source,
+      id: 's' + s.id, at: s.occurred_at, title: s.summary, source: s.source, kind: 'signal' as const, group: weekOf(s.occurred_at),
       dot: s.kind === 'checkin_low' && /Good|Great/.test(s.summary) ? DOT.good : DOT[s.severity],
     })),
-    ...m.touches.map((t) => ({ id: 't' + t.id, at: t.occurred_at, title: t.summary, source: `Outreach log · ${CHANNEL_LABELS[t.channel]}`, dot: DOT.normal })),
-  ].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 20)
+    ...m.touches.map((t) => ({
+      id: 't' + t.id, at: t.occurred_at, title: t.summary, source: CHANNEL_LABELS[t.channel], kind: 'touch' as const, group: weekOf(t.occurred_at), dot: DOT.good,
+    })),
+  ].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 40)
 
   const chip = (on: boolean | undefined, label: string, onText = 'on', offText = 'off') => (
     <Pill tone={on ? 'ok' : 'neutral'}>{label}: {on ? onText : offText}</Pill>
@@ -166,6 +172,11 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
                   <p className="mb-4 text-sm text-ink-muted">Noticed something? Flag it and it goes into the care queue.</p>
                   <FlagForCare personId={person.id} teams={m.teams} defaultTeam={m.primaryTeam?.id ?? null} />
                   <div className="mt-6 border-t border-line pt-4">
+                    <h3 className="mb-1 text-sm font-semibold">Check in again in a week</h3>
+                    <p className="mb-2 text-xs text-ink-muted">Adds a check-in call for their leader, due one week from today.</p>
+                    <CheckInNextWeek personId={person.id} teams={m.teams} defaultTeam={m.primaryTeam?.id ?? null} />
+                  </div>
+                  <div className="mt-6 border-t border-line pt-4">
                     <h3 className="mb-2 text-sm font-semibold">Send a text</h3>
                     <TextComposer personId={person.id} />
                   </div>
@@ -205,6 +216,7 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
                   caseId={c?.id ?? null}
                   teams={m.teams}
                   defaultTeam={m.primaryTeam?.id ?? c?.owner_team_id ?? null}
+                  today={today}
                   defaultDue={addDays(today, 3)}
                   isPastor={viewer.role === 'pastor'}
                 />
@@ -212,22 +224,10 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
             </Card>
           )}
 
-          {/* Signals & touches */}
-          <Card>
-            <CardHeader title="Signals & touches" />
-            <ol className="divide-y divide-line px-5 pb-2">
-              {timeline.map((e) => (
-                <li key={e.id} className="flex gap-4 py-3 text-sm">
-                  <span className="w-14 shrink-0 text-ink-muted">{fmtShort(e.at)}</span>
-                  <span className={cx('mt-1.5 size-2.5 shrink-0 rounded-full', e.dot)} aria-hidden />
-                  <span>
-                    <span className="font-semibold">{e.title}</span>
-                    <span className="block text-xs text-ink-muted">{e.source}</span>
-                  </span>
-                </li>
-              ))}
-              {timeline.length === 0 && <li><Empty>No signals yet.</Empty></li>}
-            </ol>
+          {/* Signals (what we noticed) and outreach (what the care team did) */}
+          <Card className="overflow-hidden">
+            <CardHeader title="Activity" subtitle="Signals are what we noticed. Outreach is what the care team did." />
+            <ActivityFeed items={timeline} />
           </Card>
         </div>
 

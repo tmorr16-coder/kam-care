@@ -100,6 +100,37 @@ export async function snoozeCase(_: ActionState, fd: FormData): Promise<ActionSt
   }
 }
 
+/** One-click "check in again in a week": a check-in call for the member's leader, due in 7 days. */
+export async function checkInNextWeek(_: ActionState, fd: FormData): Promise<ActionState> {
+  try {
+    const personId = uuid.parse(fd.get('personId'))
+    const caseId = optionalUuid.parse(fd.get('caseId'))
+    const teamId = optionalUuid.parse(fd.get('teamId'))
+    const { v, sb } = await verify(personId, caseId)
+    const due = addDays(todayISO(), 7)
+    const db = createAdminClient()
+    const task = {
+      title: '1-week check-in', instructions: 'See how they are doing since last week. Listen first.', task_type: 'call', due_on: due,
+    }
+    if (caseId) {
+      const { data: c } = await sb.from('care_cases').select('owner_team_id, sensitive').eq('id', caseId).single()
+      const team = c?.owner_team_id ?? teamId
+      if (!team) return { error: 'Choose a care leader first.' }
+      await addTasks(db, caseId, personId, [{ ...task, team_id: team }], c?.sensitive ?? false, v.userId)
+    } else {
+      if (!teamId) return { error: 'Choose a care leader first.' }
+      await openCase(db, {
+        personId, whyFlagged: `1-week check-in set by ${v.displayName ?? 'staff'}.`, urgency: 'normal', sensitive: false,
+        sensitiveReason: null, sensitiveVisibility: 'pastors_and_staff', channels: ['call'], actionTitle: '1-week check-in',
+        ownerTeamId: teamId, dueOn: due, flaggedBy: v.userId, tasks: [{ ...task, team_id: teamId }],
+      })
+    }
+    return done(personId, 'Check-in set for one week from today.')
+  } catch (e) {
+    return fail(e)
+  }
+}
+
 const followUpSchema = z.object({
   personId: uuid,
   caseId: optionalUuid,

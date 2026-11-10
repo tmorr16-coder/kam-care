@@ -40,17 +40,40 @@ export async function logOutcome(formData: FormData) {
 
 export type FoundPerson = { id: string; display_name: string; campus: string | null }
 
-/** Name search for the form. Name and campus only, through a database function. */
-export async function findPeople(q: string): Promise<FoundPerson[]> {
+/**
+ * Name search for the form: name and campus only. requireLeader() has already checked the
+ * caller is a care leader, staff or pastor, so this reads with the service client and
+ * doesn't depend on a database function being installed.
+ */
+async function searchPeople(q: string): Promise<FoundPerson[]> {
+  // Keep only letters, spaces, dots, apostrophes and hyphens so the text is safe in the filter.
+  const term = q.replace(/[^\p{L}\p{N} .'-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60)
+  if (term.length < 2) return []
+  const words = term.split(' ')
+  let query = createAdminClient()
+    .from('people')
+    .select('id, display_name, first_name, last_name, campus:campuses(name)')
+    .eq('archived', false)
+    .eq('deceased', false)
+  // Every word must match the display name, first name or last name ("john sm" finds John Smith).
+  for (const w of words) query = query.or(`display_name.ilike.%${w}%,first_name.ilike.%${w}%,last_name.ilike.%${w}%`)
+  const { data, error } = await query.order('last_name').order('first_name').limit(8)
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((p) => ({
+    id: p.id,
+    display_name: p.display_name ?? [p.first_name, p.last_name].filter(Boolean).join(' '),
+    campus: (p.campus as { name: string } | null)?.name ?? null,
+  }))
+}
+
+export async function findPeople(q: string): Promise<{ people: FoundPerson[]; error?: string }> {
   await requireLeader()
-  if (q.trim().length < 2) return []
-  const supabase = await createClient()
-  const { data, error } = await supabase.rpc('leader_find_people', { q: q.slice(0, 60) })
-  if (error) {
-    console.error('[leader_find_people]', error.message)
-    return []
+  try {
+    return { people: await searchPeople(q) }
+  } catch (e) {
+    console.error('[find people]', e)
+    return { people: [], error: 'Search isn\'t working right now. Please try again.' }
   }
-  return data ?? []
 }
 
 const NOTICED: MomentType[] = ['birth', 'wedding', 'promotion', 'award', 'moved', 'sickness', 'bereavement', 'job_loss', 'other']
@@ -71,9 +94,8 @@ export async function reportNoticed(_prev: NoticedState, formData: FormData): Pr
   if (!NOTICED.includes(type)) return { error: 'Pick what happened.' }
 
   // Only someone the leader could find through the search.
-  const supabase = await createClient()
-  const { data: name } = await supabase.rpc('leader_find_people', { q: String(formData.get('person_name') ?? '') })
-  if (!name?.some((p) => p.id === personId)) return { error: 'Pick the person from the list.' }
+  const found = await searchPeople(String(formData.get('person_name') ?? '')).catch(() => [])
+  if (!found.some((p) => p.id === personId)) return { error: 'Pick the person from the list.' }
 
   const db = createAdminClient()
   const by = v.displayName ?? v.email ?? 'a care leader'

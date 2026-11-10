@@ -28,6 +28,8 @@ export function NoticedForm() {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [results, setResults] = useState<FoundPerson[]>([])
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [searchedFor, setSearchedFor] = useState('')
   const [picked, setPicked] = useState<FoundPerson | null>(null)
   const [searching, startSearch] = useTransition()
   const [state, action, saving] = useActionState(async (prev: Awaited<ReturnType<typeof reportNoticed>>, fd: FormData) => {
@@ -43,7 +45,12 @@ export function NoticedForm() {
 
   useEffect(() => {
     if (picked || q.trim().length < 2) return
-    const t = setTimeout(() => startSearch(async () => setResults(await findPeople(q))), 250)
+    const t = setTimeout(() => startSearch(async () => {
+      const res = await findPeople(q)
+      setResults(res.people)
+      setSearchError(res.error ?? null)
+      setSearchedFor(q)
+    }), 250)
     return () => clearTimeout(t)
   }, [q, picked])
 
@@ -86,7 +93,11 @@ export function NoticedForm() {
                     </button>
                   </li>
                 ))}
-                {!results.length && <li className="px-3 py-2.5 text-[15px] text-ink-muted">{searching ? 'Searching…' : 'No one found by that name.'}</li>}
+                {!results.length && (
+                  <li className={'px-3 py-2.5 text-[15px] ' + (searchError ? 'text-urgent' : 'text-ink-muted')}>
+                    {searching || searchedFor !== q ? 'Searching…' : searchError ?? 'No one found by that name.'}
+                  </li>
+                )}
               </ul>
             )}
           </>
