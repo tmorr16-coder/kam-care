@@ -650,7 +650,7 @@ isOneToOne: false
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "login_for_email":
-{ Args: { "p_email": string }; Returns: { "user_id": string,"email": string,"invited_at": string | null,"email_confirmed_at": string | null,"last_sign_in_at": string | null }[]
+{ Args: { "p_email": string }; Returns: { "user_id": string,"email": string,"invited_at": string | null,"last_sign_in_at": string | null,"has_password": boolean,"other_providers": boolean }[]
                            },
 "leader_can_see_person":
 { Args: { "p": string }; Returns: boolean

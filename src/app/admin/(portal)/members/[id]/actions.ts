@@ -244,13 +244,18 @@ export async function flagForCare(_: ActionState, fd: FormData): Promise<ActionS
 }
 
 // ─── Sign-in access ─────────────────────────────────────────────────────────
-// Emails go out through Supabase Auth's mail settings. Links land on /auth/accept, which signs
-// the person in and asks them to choose a password.
+// Emails go out through Supabase Auth's mail settings. The email templates link to /auth/confirm,
+// which asks the person to press a button before using the link (so mail scanners can't use it up).
 
 const acceptUrl = () => `${env.siteUrl}${ACCEPT_PATH}`
 
 async function logAccess(userId: string, personId: string, action: string) {
   await createAdminClient().from('access_log').insert({ user_id: userId, person_id: personId, action })
+}
+
+function emailError(message: string) {
+  if (/rate limit/i.test(message)) return 'Too many sign-in emails were sent in the last hour. Try again later.'
+  return message
 }
 
 export async function inviteToKamCare(_: ActionState, fd: FormData): Promise<ActionState> {
@@ -264,13 +269,21 @@ export async function inviteToKamCare(_: ActionState, fd: FormData): Promise<Act
     const status = await getLoginStatus(personId, email)
     if (status.state === 'active') return { error: `They already have a sign-in (${status.email}). Send a password reset instead.` }
 
-    const { error } = await createAdminClient().auth.admin.inviteUserByEmail(email, {
+    const admin = createAdminClient()
+    const { error } = await admin.auth.admin.inviteUserByEmail(status.email ?? email, {
       redirectTo: acceptUrl(),
       data: { full_name: [p?.first_name, p?.last_name].filter(Boolean).join(' ') || undefined },
     })
-    if (error) return { error: /already been registered/i.test(error.message) ? 'They already have a sign-in. Send a password reset instead.' : error.message }
+    if (error && /already been registered/i.test(error.message)) {
+      // An earlier invite link was opened (often by a mail scanner) but no password was set.
+      // A password reset email gets them to the same "choose a password" step.
+      const { error: resetError } = await admin.auth.resetPasswordForEmail(status.email ?? email, { redirectTo: acceptUrl() })
+      if (resetError) return { error: emailError(resetError.message) }
+    } else if (error) {
+      return { error: emailError(error.message) }
+    }
     await logAccess(v.userId, personId, 'invite_login')
-    return done(personId, `Invite sent to ${email}. The link works for 24 hours.`)
+    return done(personId, `Invite sent to ${status.email ?? email}.`)
   } catch (e) {
     return fail(e)
   }
@@ -286,9 +299,9 @@ export async function sendPasswordReset(_: ActionState, fd: FormData): Promise<A
 
     // Service-role client: the link works on any device, not just this browser.
     const { error } = await createAdminClient().auth.resetPasswordForEmail(status.email, { redirectTo: acceptUrl() })
-    if (error) return { error: error.message }
+    if (error) return { error: emailError(error.message) }
     await logAccess(v.userId, personId, 'send_password_reset')
-    return done(personId, `Password reset sent to ${status.email}. The link works for 1 hour.`)
+    return done(personId, `Password reset sent to ${status.email}.`)
   } catch (e) {
     return fail(e)
   }
