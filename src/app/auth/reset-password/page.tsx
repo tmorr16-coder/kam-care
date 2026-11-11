@@ -25,11 +25,26 @@ async function ResetBody() {
   )
 }
 
-export default function ResetPassword() {
+type Search = Promise<{ welcome?: string }>
+
+/** New invitees arrive with ?welcome=1. */
+async function Heading({ searchParams }: { searchParams: Search }) {
+  const { welcome } = await searchParams
+  return (
+    <>
+      <h1 className="mt-6 mb-2 font-serif text-3xl font-semibold">{welcome ? 'Welcome to KAM Care' : 'Choose a new password'}</h1>
+      {welcome && <p className="mb-2 text-[15px] text-ink">Choose a password to finish setting up your sign-in.</p>}
+    </>
+  )
+}
+
+export default function ResetPassword({ searchParams }: { searchParams: Search }) {
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-12">
       <Logo size={72} />
-      <h1 className="mt-6 mb-2 font-serif text-3xl font-semibold">Choose a new password</h1>
+      <Suspense fallback={<h1 className="mt-6 mb-2 font-serif text-3xl font-semibold">Choose a new password</h1>}>
+        <Heading searchParams={searchParams} />
+      </Suspense>
       <Suspense fallback={null}>
         <ResetBody />
       </Suspense>

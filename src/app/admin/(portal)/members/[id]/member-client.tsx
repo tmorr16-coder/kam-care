@@ -5,7 +5,7 @@ import { buttonClass, cx, inputClass } from '@/components/ui'
 import { SENSITIVE_REASONS } from '@/lib/types'
 import { addDays, fmtShort } from '@/lib/dates'
 import {
-  addPastoralNote, assignFollowUp, changeAccess, checkInNextWeek, flagForCare, referCounseling, scheduleCall, sendText, snoozeCase, type ActionState,
+  addPastoralNote, assignFollowUp, changeAccess, checkInNextWeek, flagForCare, inviteToKamCare, referCounseling, scheduleCall, sendPasswordReset, sendText, snoozeCase, type ActionState,
 } from './actions'
 
 function Status({ state, dark }: { state: ActionState; dark?: boolean }) {
@@ -304,5 +304,53 @@ export function ActivityFeed({ items }: { items: ActivityItem[] }) {
         </button>
       )}
     </>
+  )
+}
+
+export type SignInStatus =
+  | { state: 'none'; email: string | null }
+  | { state: 'invited'; email: string; invitedAt: string | null }
+  | { state: 'active'; email: string; lastSignInAt: string | null }
+
+/** Shows whether the person can sign in, with one-click invite and password reset. */
+export function SignInAccess({ personId, firstName, status }: { personId: string; firstName: string; status: SignInStatus }) {
+  const [inviteState, inviteAction, invitePending] = useActionState(inviteToKamCare, null)
+  const [resetState, resetAction, resetPending] = useActionState(sendPasswordReset, null)
+  const last = inviteState ?? resetState
+
+  const summary =
+    status.state === 'active' ? <>Has a sign-in{status.lastSignInAt ? ` · last signed in ${fmtShort(status.lastSignInAt)}` : ''}</>
+      : status.state === 'invited' ? <>Invited{status.invitedAt ? ` ${fmtShort(status.invitedAt)}` : ''}, hasn’t set a password yet</>
+        : <>No sign-in yet</>
+
+  return (
+    <form className="space-y-3">
+      <input type="hidden" name="personId" value={personId} />
+      <p className="text-sm">
+        <span className={cx('mr-2 inline-block size-2 rounded-full', status.state === 'active' ? 'bg-ok' : status.state === 'invited' ? 'bg-warn' : 'bg-[#c9c4ba]')} aria-hidden />
+        {summary}
+        {status.email && <span className="block truncate pl-4 text-xs text-ink-muted">{status.email}</span>}
+      </p>
+      {status.state === 'none' && !status.email ? (
+        <p className="text-xs text-ink-muted">Add an email for {firstName} in OneChurch to invite them.</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {status.state !== 'active' && (
+            <button formAction={inviteAction} className={buttonClass('primary', 'sm')} disabled={invitePending}>
+              {invitePending ? 'Sending…' : status.state === 'invited' ? 'Resend invite' : 'Invite to KAM Care'}
+            </button>
+          )}
+          {status.state !== 'none' && (
+            <button formAction={resetAction} className={buttonClass(status.state === 'active' ? 'primary' : 'secondary', 'sm')} disabled={resetPending}>
+              {resetPending ? 'Sending…' : 'Send password reset'}
+            </button>
+          )}
+        </div>
+      )}
+      <Status state={last} />
+      <p className="text-xs text-ink-muted">
+        {firstName} gets an email with a link to choose a password. If it doesn’t arrive, ask them to check junk mail.
+      </p>
+    </form>
   )
 }

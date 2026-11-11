@@ -11,6 +11,9 @@ import { writeTouchToOneChurch } from '@/lib/onechurch/sync'
 import { sendSms } from '@/lib/messaging'
 import { addDays, todayISO } from '@/lib/dates'
 import { SENSITIVE_REASONS } from '@/lib/types'
+import { env } from '@/lib/env'
+import { getLoginStatus } from '@/lib/accounts'
+import { ACCEPT_PATH } from '@/app/login/paths'
 
 const uuid = z.guid()
 const optionalUuid = z.preprocess((v) => (v === '' || v === null ? undefined : v), uuid.optional())
@@ -235,6 +238,57 @@ export async function flagForCare(_: ActionState, fd: FormData): Promise<ActionS
       tasks: [{ title: 'Check-in call', task_type: 'call', team_id: input.teamId, due_on: due }],
     })
     return done(input.personId, 'Flagged for care.')
+  } catch (e) {
+    return fail(e)
+  }
+}
+
+// ─── Sign-in access ─────────────────────────────────────────────────────────
+// Emails go out through Supabase Auth's mail settings. Links land on /auth/accept, which signs
+// the person in and asks them to choose a password.
+
+const acceptUrl = () => `${env.siteUrl}${ACCEPT_PATH}`
+
+async function logAccess(userId: string, personId: string, action: string) {
+  await createAdminClient().from('access_log').insert({ user_id: userId, person_id: personId, action })
+}
+
+export async function inviteToKamCare(_: ActionState, fd: FormData): Promise<ActionState> {
+  try {
+    const personId = uuid.parse(fd.get('personId'))
+    const { v, sb } = await verify(personId)
+    const { data: p } = await sb.from('people').select('email, first_name, last_name').eq('id', personId).single()
+    const email = p?.email?.trim().toLowerCase()
+    if (!email || !z.email().safeParse(email).success) return { error: 'Add an email address for them in OneChurch first.' }
+
+    const status = await getLoginStatus(personId, email)
+    if (status.state === 'active') return { error: `They already have a sign-in (${status.email}). Send a password reset instead.` }
+
+    const { error } = await createAdminClient().auth.admin.inviteUserByEmail(email, {
+      redirectTo: acceptUrl(),
+      data: { full_name: [p?.first_name, p?.last_name].filter(Boolean).join(' ') || undefined },
+    })
+    if (error) return { error: /already been registered/i.test(error.message) ? 'They already have a sign-in. Send a password reset instead.' : error.message }
+    await logAccess(v.userId, personId, 'invite_login')
+    return done(personId, `Invite sent to ${email}. The link works for 24 hours.`)
+  } catch (e) {
+    return fail(e)
+  }
+}
+
+export async function sendPasswordReset(_: ActionState, fd: FormData): Promise<ActionState> {
+  try {
+    const personId = uuid.parse(fd.get('personId'))
+    const { v, sb } = await verify(personId)
+    const { data: p } = await sb.from('people').select('email').eq('id', personId).single()
+    const status = await getLoginStatus(personId, p?.email ?? null)
+    if (status.state === 'none') return { error: 'They don’t have a sign-in yet. Send an invite instead.' }
+
+    // Service-role client: the link works on any device, not just this browser.
+    const { error } = await createAdminClient().auth.resetPasswordForEmail(status.email, { redirectTo: acceptUrl() })
+    if (error) return { error: error.message }
+    await logAccess(v.userId, personId, 'send_password_reset')
+    return done(personId, `Password reset sent to ${status.email}. The link works for 1 hour.`)
   } catch (e) {
     return fail(e)
   }

@@ -10,7 +10,8 @@ import { loadMember, recentWeekdays } from '@/lib/data/member'
 import { addDays, daysBetween, dueLabel, fmtShort, todayISO } from '@/lib/dates'
 import { CHANNEL_LABELS, CHECKIN_LABELS } from '@/lib/types'
 import { Card, CardHeader, Empty, Initials, PastorsOnly, Pill, cx } from '@/components/ui'
-import { ActivityFeed, AssignFollowUp, ChangeAccess, CheckInNextWeek, FlagForCare, NextActionComposer, PastoralNoteForm, TextComposer, type ActivityItem } from './member-client'
+import { getLoginStatus } from '@/lib/accounts'
+import { ActivityFeed, AssignFollowUp, ChangeAccess, CheckInNextWeek, FlagForCare, NextActionComposer, PastoralNoteForm, SignInAccess, TextComposer, type ActivityItem } from './member-client'
 
 export const metadata: Metadata = { title: 'Member' }
 
@@ -28,6 +29,7 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
 
   const { person, care, consent, openCase: c } = m
   const today = todayISO()
+  const login = await getLoginStatus(person.id, person.email)
 
   // Every view of a sensitive matter is logged. RLS already confirmed this viewer can see the case.
   if (c?.sensitive) {
@@ -233,6 +235,11 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
 
         {/* Right column */}
         <div className="space-y-6">
+          <Card className="p-5">
+            <h2 className="mb-3 font-serif text-lg font-semibold">KAM Care sign-in</h2>
+            <SignInAccess personId={person.id} firstName={person.first_name} status={login} />
+          </Card>
+
           <Card className="p-5">
             <h2 className="mb-3 font-serif text-lg font-semibold">Last 12 weeks</h2>
             {[['Sunday 10 AM', 'sunday', sundays], ['Tue Bible Study', 'bible_study', tuesdays]].map(([label, kind, days]) => (
