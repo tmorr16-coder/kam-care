@@ -19,7 +19,10 @@ function creds(formData: FormData) {
 }
 
 function friendly(message: string) {
-  return /captcha/i.test(message) ? 'Please complete the "I am human" check and try again.' : message
+  if (/captcha/i.test(message)) return 'Please complete the "I am human" check and try again.'
+  // Supabase couldn't hand the email to our mail provider (e.g. SMTP misconfigured).
+  if (/sending .*email/i.test(message)) return "We couldn't send your email just now. Please try again later or contact the church office."
+  return message
 }
 
 /** Email + password sign-in, used by both the member and admin sign-in pages. */
