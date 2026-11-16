@@ -96,7 +96,10 @@ async function campusFor(db: Db, location: { id?: number; name?: string | null }
 
 // ─── People ─────────────────────────────────────────────────────────────────
 
-export async function upsertPerson(db: Db, p: OcPerson) {
+/** Returns null for someone an admin deleted from KAM Care: they stay deleted. */
+export async function upsertPerson(db: Db, p: OcPerson): Promise<string | null> {
+  const { data: removed } = await db.from('removed_people').select('oc_person_id').eq('oc_person_id', p.id).maybeSingle()
+  if (removed) return null
   let householdId: string | null = null
   const fam = familyId(p)
   if (fam) {
@@ -149,7 +152,7 @@ export async function upsertPerson(db: Db, p: OcPerson) {
 export async function syncPerson(db: Db, ocPersonId: number) {
   const p = await ocRequest<OcPerson>(`/people/${ocPersonId}`)
   const personId = await upsertPerson(db, p)
-  await syncRolesForPerson(db, personId, ocPersonId)
+  if (personId) await syncRolesForPerson(db, personId, ocPersonId)
   return personId
 }
 
@@ -395,6 +398,7 @@ export async function processWebhook(db: Db, event: WebhookEvent | string, paylo
       const id = pickId(payload, 'person', 'personId', 'id')
       if (!id) throw new Error('No person id in payload')
       const personId = await syncPerson(db, id)
+      if (!personId) return 'Deleted from KAM Care · skipped'
       const { data } = await db.from('people').select('first_name, last_name').eq('id', personId).single()
       return `${data?.last_name}, ${data?.first_name} · refreshed`
     }

@@ -59,6 +59,9 @@ export async function emailLink(_prev: AuthState, formData: FormData): Promise<A
 export async function signUp(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const { email, password, captchaToken } = creds(formData)
   if (!email || password.length < 10) return { error: 'Use your email and a password of at least 10 characters.' }
+  // Typed twice so a typo can't create an account no one can confirm.
+  const confirmEmail = String(formData.get('confirmEmail') ?? '').trim().toLowerCase()
+  if (confirmEmail !== email) return { error: 'The two email addresses don’t match. Check them and try again.' }
   const supabase = await createClient()
   const { error } = await supabase.auth.signUp({
     email,
@@ -66,7 +69,7 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
     options: { emailRedirectTo: `${env.siteUrl}/auth/callback`, captchaToken },
   })
   if (error) return { error: friendly(error.message) }
-  return { message: `We sent a confirmation link to ${email}. Open it to finish creating your account.` }
+  return { message: `We sent a confirmation link to ${email}. Open it to finish creating your account. Not your address? Create the account again with the right one.` }
 }
 
 /** "Forgot password?": emails a link that opens the set-a-new-password page. */

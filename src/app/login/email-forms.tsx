@@ -90,6 +90,8 @@ function SignUpForm({ onBack }: { onBack: () => void }) {
     <form action={action} className="space-y-3">
       <h2 className="text-lg font-semibold">Create a KAM Care account</h2>
       <input name="email" type="email" autoComplete="email" required placeholder="Email" aria-label="Email" className={inputClass + ' py-3 text-base'} />
+      <input name="confirmEmail" type="email" autoComplete="off" required placeholder="Type your email again" aria-label="Confirm email" className={inputClass + ' py-3 text-base'} />
+      <p className="text-sm text-ink-muted">We&apos;ll email a link to this address. Please double-check it.</p>
       <PasswordInput autoComplete="new-password" minLength={10} placeholder="Password (10+ characters)" aria-label="Password" className="py-3 text-base" />
       <Turnstile resetKey={state} />
       <Notice state={state} />

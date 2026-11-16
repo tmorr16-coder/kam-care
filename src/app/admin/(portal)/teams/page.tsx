@@ -7,6 +7,7 @@ import { suggestTeam } from '@/lib/care/engine'
 import { fmtShort, todayISO } from '@/lib/dates'
 import { Bar, buttonClass, Card, CardHeader, cx, inputClass } from '@/components/ui'
 import { AddLeader } from './add-leader'
+import { RemoveLeader } from './remove-leader'
 import { assignTask, updateCapacity } from './actions'
 
 export const metadata: Metadata = { title: 'Care teams' }
@@ -104,6 +105,7 @@ export default async function TeamsPage() {
                       <th scope="row" className="px-5 py-3.5 text-left">
                         <span className="block font-semibold">{t.name}</span>
                         <span className="text-xs font-normal text-ink-muted">{t.subtitle ?? (t.kind === 'team' ? 'Team' : 'Leader')}</span>
+                        <RemoveLeader teamId={t.id} name={t.name} openTasks={n} />
                       </th>
                       <td className="px-5 py-3.5">{t.campus_id ? CAMPUS[t.campus_id] : 'All'}</td>
                       <td className="px-5 py-3.5 tabular-nums">{n}</td>

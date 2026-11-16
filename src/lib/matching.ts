@@ -67,7 +67,10 @@ async function findBy(field: 'email' | 'phone', value: string): Promise<string[]
   if (!isOneChurchConfigured()) return []
   const page = await ocRequest<Paged<OcPerson>>('/people', { query: { [field]: value, archived: false, limit: 5 } })
   const ids: string[] = []
-  for (const p of page.data ?? []) ids.push(await upsertPerson(db, p))
+  for (const p of page.data ?? []) {
+    const id = await upsertPerson(db, p)
+    if (id) ids.push(id)
+  }
   return ids
 }
 

@@ -11,7 +11,7 @@ import { addDays, daysBetween, dueLabel, fmtShort, todayISO } from '@/lib/dates'
 import { CHANNEL_LABELS, CHECKIN_LABELS } from '@/lib/types'
 import { Card, CardHeader, Empty, Initials, PastorsOnly, Pill, cx } from '@/components/ui'
 import { getLoginStatus } from '@/lib/accounts'
-import { ActivityFeed, AssignFollowUp, ChangeAccess, CheckInNextWeek, FlagForCare, NextActionComposer, PastoralNoteForm, SignInAccess, TextComposer, type ActivityItem } from './member-client'
+import { ActivityFeed, AssignFollowUp, ChangeAccess, CheckInNextWeek, DeleteMember, FlagForCare, NextActionComposer, PastoralNoteForm, SignInAccess, TextComposer, type ActivityItem } from './member-client'
 
 export const metadata: Metadata = { title: 'Member' }
 
@@ -237,7 +237,7 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
         <div className="space-y-6">
           <Card className="p-5">
             <h2 className="mb-3 font-serif text-lg font-semibold">KAM Care sign-in</h2>
-            <SignInAccess personId={person.id} firstName={person.first_name} status={login} />
+            <SignInAccess personId={person.id} firstName={person.first_name} status={login} canFix={viewer.isAdmin} />
           </Card>
 
           <Card className="p-5">
@@ -299,6 +299,12 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
               {!m.household.length && !m.primaryTeam && !person.ministries.length && <li className="text-ink-muted">No household or ministry links yet.</li>}
             </ul>
           </Card>
+
+          {viewer.isAdmin && viewer.personId !== person.id && (
+            <Card className="p-5">
+              <DeleteMember personId={person.id} firstName={person.first_name} />
+            </Card>
+          )}
 
           {viewer.role === 'pastor' && (
             <section className="rounded-xl border border-[#f0dfb8] bg-[#fdf7ea] p-5">

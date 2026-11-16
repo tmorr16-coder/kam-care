@@ -5,7 +5,7 @@ import { buttonClass, cx, inputClass } from '@/components/ui'
 import { SENSITIVE_REASONS } from '@/lib/types'
 import { addDays, fmtShort } from '@/lib/dates'
 import {
-  addPastoralNote, assignFollowUp, changeAccess, checkInNextWeek, flagForCare, inviteToKamCare, referCounseling, scheduleCall, sendPasswordReset, sendText, snoozeCase, type ActionState,
+  addPastoralNote, assignFollowUp, changeAccess, checkInNextWeek, deleteMember, fixMistypedSignIn, flagForCare, inviteToKamCare, referCounseling, scheduleCall, sendPasswordReset, sendText, snoozeCase, type ActionState,
 } from './actions'
 
 function Status({ state, dark }: { state: ActionState; dark?: boolean }) {
@@ -313,7 +313,7 @@ export type SignInStatus =
   | { state: 'active'; email: string; lastSignInAt: string | null }
 
 /** Shows whether the person can sign in, with one-click invite and password reset. */
-export function SignInAccess({ personId, firstName, status }: { personId: string; firstName: string; status: SignInStatus }) {
+export function SignInAccess({ personId, firstName, status, canFix }: { personId: string; firstName: string; status: SignInStatus; canFix: boolean }) {
   const [inviteState, inviteAction, invitePending] = useActionState(inviteToKamCare, null)
   const [resetState, resetAction, resetPending] = useActionState(sendPasswordReset, null)
   const last = inviteState ?? resetState
@@ -324,33 +324,86 @@ export function SignInAccess({ personId, firstName, status }: { personId: string
         : <>No sign-in yet</>
 
   return (
-    <form className="space-y-3">
-      <input type="hidden" name="personId" value={personId} />
-      <p className="text-sm">
-        <span className={cx('mr-2 inline-block size-2 rounded-full', status.state === 'active' ? 'bg-ok' : status.state === 'invited' ? 'bg-warn' : 'bg-[#c9c4ba]')} aria-hidden />
-        {summary}
-        {status.email && <span className="block truncate pl-4 text-xs text-ink-muted">{status.email}</span>}
-      </p>
-      {status.state === 'none' && !status.email ? (
-        <p className="text-xs text-ink-muted">Add an email for {firstName} in OneChurch to invite them.</p>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {status.state !== 'active' && (
-            <button formAction={inviteAction} className={buttonClass('primary', 'sm')} disabled={invitePending}>
-              {invitePending ? 'Sending…' : status.state === 'invited' ? 'Resend invite' : 'Invite to KAM Care'}
-            </button>
-          )}
-          {status.state !== 'none' && (
-            <button formAction={resetAction} className={buttonClass(status.state === 'active' ? 'primary' : 'secondary', 'sm')} disabled={resetPending}>
-              {resetPending ? 'Sending…' : 'Send password reset'}
-            </button>
-          )}
-        </div>
-      )}
-      <Status state={last} />
-      <p className="text-xs text-ink-muted">
-        {firstName} gets an email with a link to choose a password. If it doesn’t arrive, ask them to check junk mail.
-      </p>
-    </form>
+    <div className="space-y-3">
+      <form className="space-y-3">
+        <input type="hidden" name="personId" value={personId} />
+        <p className="text-sm">
+          <span className={cx('mr-2 inline-block size-2 rounded-full', status.state === 'active' ? 'bg-ok' : status.state === 'invited' ? 'bg-warn' : 'bg-[#c9c4ba]')} aria-hidden />
+          {summary}
+          {status.email && <span className="block truncate pl-4 text-xs text-ink-muted">{status.email}</span>}
+        </p>
+        {status.state === 'none' && !status.email ? (
+          <p className="text-xs text-ink-muted">Add an email for {firstName} in OneChurch to invite them.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {status.state !== 'active' && (
+              <button formAction={inviteAction} className={buttonClass('primary', 'sm')} disabled={invitePending}>
+                {invitePending ? 'Sending…' : status.state === 'invited' ? 'Resend invite' : 'Invite to KAM Care'}
+              </button>
+            )}
+            {status.state !== 'none' && (
+              <button formAction={resetAction} className={buttonClass(status.state === 'active' ? 'primary' : 'secondary', 'sm')} disabled={resetPending}>
+                {resetPending ? 'Sending…' : 'Send password reset'}
+              </button>
+            )}
+          </div>
+        )}
+        <Status state={last} />
+        <p className="text-xs text-ink-muted">
+          {firstName} gets an email with a link to choose a password. If it doesn’t arrive, ask them to check junk mail.
+        </p>
+      </form>
+      {canFix && status.state === 'none' && status.email && <FixMistypedSignIn personId={personId} firstName={firstName} correctEmail={status.email} />}
+    </div>
+  )
+}
+
+/** Admins: move a sign-in created with a mistyped email over to the member's OneChurch email. */
+function FixMistypedSignIn({ personId, firstName, correctEmail }: { personId: string; firstName: string; correctEmail: string }) {
+  const [state, action, pending] = useActionState(fixMistypedSignIn, null)
+  const [typed, setTyped] = useState('')
+  return (
+    <details className="border-t border-line pt-3">
+      <summary className="cursor-pointer text-sm font-semibold text-navy-800">Signed up with a mistyped email?</summary>
+      <form
+        action={action}
+        onSubmit={(e) => {
+          if (!confirm(`Move the sign-in for ${typed.trim()} to ${correctEmail}?\n\nIts old password stops working. ${firstName} gets an email at ${correctEmail} to choose a new one.`)) e.preventDefault()
+        }}
+        className="mt-2 space-y-2"
+      >
+        <input type="hidden" name="personId" value={personId} />
+        <p className="text-xs text-ink-muted">
+          Enter the address {firstName} typed by mistake. We&apos;ll move that sign-in to <span className="font-semibold">{correctEmail}</span> and email them there to choose a new password.
+        </p>
+        <input name="typedEmail" type="email" required value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Mistyped email" aria-label="Mistyped email" className={inputClass} />
+        <button className={buttonClass('secondary', 'sm')} disabled={pending}>{pending ? 'Moving…' : 'Move sign-in'}</button>
+        <Status state={state} />
+      </form>
+    </details>
+  )
+}
+
+/** Admins: permanently delete a member from KAM Care. Typing their first name guards against misclicks. */
+export function DeleteMember({ personId, firstName }: { personId: string; firstName: string }) {
+  const [state, action, pending] = useActionState(deleteMember, null)
+  const [typed, setTyped] = useState('')
+  const ready = typed.trim().toLowerCase() === firstName.trim().toLowerCase()
+  return (
+    <details>
+      <summary className="cursor-pointer text-sm font-semibold text-urgent">Delete {firstName} from KAM Care</summary>
+      <form action={action} className="mt-3 space-y-2">
+        <input type="hidden" name="personId" value={personId} />
+        <p className="text-xs text-ink-muted">
+          Removes their care history, check-ins, notes and KAM Care sign-in. This can’t be undone. Their OneChurch record isn’t changed, and they won’t be re-added by the sync.
+        </p>
+        <label className="block text-xs font-medium" htmlFor="delete-confirm">Type <strong>{firstName}</strong> to confirm</label>
+        <input id="delete-confirm" name="confirm" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" className={inputClass} />
+        <button disabled={!ready || pending} className={cx(buttonClass('danger', 'sm'), 'disabled:opacity-50')}>
+          {pending ? 'Deleting…' : 'Delete permanently'}
+        </button>
+        <Status state={state} />
+      </form>
+    </details>
   )
 }

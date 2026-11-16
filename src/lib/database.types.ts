@@ -475,6 +475,20 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"removed_people": {
+                  Row: {
+                    "name": string | null,"oc_person_id": number,"removed_at": string,"removed_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "name"?: string | null,"oc_person_id": number,"removed_at"?: string,"removed_by"?: string | null
+                  }
+                  Update: {
+                    "name"?: string | null,"oc_person_id"?: number,"removed_at"?: string,"removed_by"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"profiles": {
                   Row: {
                     "campus_id": string | null,"created_at": string,"is_admin": boolean,"last_role_sync_at": string | null,"match_status": string,"person_id": string | null,"role": Database["public"]['Enums']["app_role"],"role_source": string,"user_id": string

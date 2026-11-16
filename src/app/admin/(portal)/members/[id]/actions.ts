@@ -2,6 +2,7 @@
 
 import { after } from 'next/server'
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { assertStaff } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
@@ -305,4 +306,97 @@ export async function sendPasswordReset(_: ActionState, fd: FormData): Promise<A
   } catch (e) {
     return fail(e)
   }
+}
+
+/**
+ * A member signed up with a mistyped email, so no confirmation email could reach them.
+ * Moves that sign-in to their OneChurch email and links it to them.
+ *
+ * Whoever chose the old password may not be the member (someone could call in claiming a typo),
+ * so the password is wiped and a reset goes to the OneChurch inbox: only its owner can get in.
+ */
+export async function fixMistypedSignIn(_: ActionState, fd: FormData): Promise<ActionState> {
+  try {
+    const personId = uuid.parse(fd.get('personId'))
+    const typed = z.email().parse(String(fd.get('typedEmail') ?? '').trim().toLowerCase())
+    const { v, sb } = await verify(personId)
+    if (!v.isAdmin) return { error: 'Only admins can move a sign-in.' }
+
+    const { data: p } = await sb.from('people').select('email, campus_id').eq('id', personId).single()
+    const target = p?.email?.trim().toLowerCase()
+    if (!target || !z.email().safeParse(target).success) return { error: 'Add their correct email in OneChurch first.' }
+    if (typed === target) return { error: 'That is already their OneChurch email. Send an invite or password reset instead.' }
+
+    const status = await getLoginStatus(personId, target)
+    if (status.state !== 'none') return { error: `They already have a sign-in (${status.email}). Send a password reset instead.` }
+
+    const admin = createAdminClient()
+    const { data: rows } = await admin.rpc('login_for_email', { p_email: typed })
+    const u = rows?.[0]
+    if (!u) return { error: `No sign-in uses ${typed}. Check the spelling with them.` }
+    if (u.other_providers) return { error: 'That sign-in uses Google or another provider, so its email can’t be changed here.' }
+    const { data: profile } = await admin.from('profiles').select('person_id').eq('user_id', u.user_id).maybeSingle()
+    if (profile?.person_id && profile.person_id !== personId) return { error: 'That sign-in belongs to someone else in OneChurch.' }
+
+    const { error } = await admin.auth.admin.updateUserById(u.user_id, {
+      email: target,
+      email_confirm: true,
+      password: crypto.randomUUID() + crypto.randomUUID(),
+    })
+    if (error) return { error: error.message }
+
+    await admin.from('profiles').upsert({ user_id: u.user_id, person_id: personId, match_status: 'matched', campus_id: p?.campus_id ?? null }, { onConflict: 'user_id' })
+    await admin.from('match_reviews').update({ status: 'resolved', resolved_by: v.userId }).eq('user_id', u.user_id).eq('status', 'open')
+    await logAccess(v.userId, personId, `fix_signin_email:${typed}`)
+
+    const { error: resetError } = await admin.auth.resetPasswordForEmail(target, { redirectTo: acceptUrl() })
+    if (resetError) return done(personId, `Sign-in moved to ${target}, but the email to choose a password didn’t send (${emailError(resetError.message)}). Use “Send password reset” to try again.`)
+    return done(personId, `Sign-in moved from ${typed} to ${target}. They’ll get an email there to choose a new password.`)
+  } catch (e) {
+    return fail(e)
+  }
+}
+
+/**
+ * Admins: permanently deletes a member and everything KAM Care holds about them (care history,
+ * check-ins, notes) plus their sign-in. OneChurch is untouched; the sync is told to skip them,
+ * so they aren't re-created tonight.
+ */
+export async function deleteMember(_: ActionState, fd: FormData): Promise<ActionState> {
+  let personId: string
+  try {
+    personId = uuid.parse(fd.get('personId'))
+    const { v, person } = await verify(personId)
+    if (!v.isAdmin) return { error: 'Only admins can delete members.' }
+    if (v.personId === personId) return { error: 'You can’t delete yourself.' }
+    const typed = String(fd.get('confirm') ?? '').trim().toLowerCase()
+    if (typed !== person.first_name.trim().toLowerCase()) return { error: `Type ${person.first_name} to confirm.` }
+
+    const admin = createAdminClient()
+    const [{ data: p }, { data: logins }] = await Promise.all([
+      admin.from('people').select('oc_person_id, display_name').eq('id', personId).single(),
+      admin.from('profiles').select('user_id, is_admin').eq('person_id', personId),
+    ])
+    if (logins?.some((l) => l.is_admin)) return { error: 'This person is an admin. Remove their admin access first.' }
+
+    if (p?.oc_person_id) {
+      const { error } = await admin.from('removed_people').upsert({ oc_person_id: p.oc_person_id, name: p.display_name, removed_by: v.userId })
+      if (error) throw error
+    }
+    // Person first: their own cases, touches and notes cascade away, so nothing of theirs still
+    // points at the sign-in when it's deleted.
+    const { error } = await admin.from('people').delete().eq('id', personId)
+    if (error) throw error
+    for (const l of logins ?? []) {
+      // A leader's work on other members still references their sign-in and blocks deleting it.
+      // The sign-in is then left unlinked, which only reaches the "we couldn't match you" page.
+      const { error: authError } = await admin.auth.admin.deleteUser(l.user_id)
+      if (authError) console.error('delete member: sign-in kept', l.user_id, authError.message)
+    }
+  } catch (e) {
+    return fail(e)
+  }
+  revalidatePath('/admin/members')
+  revalidatePath('/admin')
+  redirect('/admin/members')
 }

@@ -86,3 +86,36 @@ export async function createTeam(_prev: FormState, formData: FormData): Promise<
   revalidatePath('/admin/teams')
   return { ok: true, message: `${v.name} added.` }
 }
+
+/**
+ * Removes a leader or team from KAM Care. The row is kept (inactive) so past outreach still shows
+ * who did it. Their open tasks go back to "Unassigned" and members who had them as primary leader
+ * get a new one on the next match.
+ */
+export async function removeTeam(_prev: FormState, formData: FormData): Promise<FormState> {
+  try {
+    await assertStaff()
+    const id = uuid.parse(formData.get('teamId'))
+    const supabase = await createClient()
+    // User-scoped client: RLS confirms this viewer may change care teams.
+    const { data: team, error } = await supabase.from('care_teams').update({ active: false, oc_group_id: null }).eq('id', id).select('name').maybeSingle()
+    if (error) throw error
+    if (!team) return { error: 'Leader not found.' }
+
+    // Service role, so pastors-only tasks and cases are covered too.
+    const admin = createAdminClient()
+    const results = await Promise.all([
+      admin.from('tasks').update({ assignee_team_id: null, notified_at: null }).eq('assignee_team_id', id).in('status', ['scheduled', 'due']),
+      admin.from('care_cases').update({ owner_team_id: null }).eq('owner_team_id', id).eq('status', 'open'),
+      admin.from('person_care').update({ primary_team_id: null }).eq('primary_team_id', id),
+      admin.from('care_team_members').delete().eq('team_id', id),
+    ])
+    const failed = results.find((r) => r.error)
+    if (failed?.error) throw failed.error
+    revalidatePath('/admin/teams')
+    revalidatePath('/admin')
+    return { ok: true, message: `${team.name} removed. Their open tasks are now unassigned.` }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Something went wrong' }
+  }
+}
